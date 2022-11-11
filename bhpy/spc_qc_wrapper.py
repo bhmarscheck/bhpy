@@ -30,6 +30,10 @@ class SpcQcDllWrapper:
     self.deinit = self.dll.deinit
     self.deinit.restype = c_int16
 
+    self.__set_measurement_configuration = self.dll.set_measurement_configuration
+    self.__set_measurement_configuration.restype = c_int16
+    self.__set_measurement_configuration.argtypes = [c_uint8, POINTER(c_uint32),POINTER(c_uint32),POINTER(c_uint8)]
+
     self.__set_card_focus = self.dll.set_card_focus
     self.__set_card_focus.restype = c_int16
     self.__set_card_focus.argtypes = [c_uint8]
@@ -55,10 +59,6 @@ class SpcQcDllWrapper:
     self.get_rates = self.dll.get_rates
     self.get_rates.argtypes = [c_uint8]
     self.get_rates.restype = c_uint32
-
-    self.__set_lower_limit = self.dll.set_lower_limit
-    self.__set_lower_limit.argtype = c_uint16
-    self.__set_lower_limit.restype = c_int16
 
     self.get_marker_status = self.dll.get_marker_status
     self.get_marker_status.argtype = c_uint8
@@ -91,10 +91,6 @@ class SpcQcDllWrapper:
     self.get_module_status = self.dll.get_module_status
     self.get_module_status.restype = c_uint8
 
-    self.__set_dt_mode = self.dll.set_dt_mode
-    self.__set_dt_mode.argtype = c_bool
-    self.__set_dt_mode.restype = c_int8
-
     self.start_measurement = self.dll.start_measurement
     self.start_measurement.restype = c_int8
 
@@ -104,10 +100,6 @@ class SpcQcDllWrapper:
     self.set_timer_duration = self.dll.set_timer_duration
     self.set_timer_duration.argtype = c_double
     self.set_timer_duration.restype = c_double
-
-    self.__set_time_range = self.dll.set_time_range
-    self.__set_time_range.argtype = c_uint32
-    self.__set_time_range.restype = c_int32
 
     self.__set_marker_enable = self.dll.set_marker_enable
     self.__set_marker_enable.argtypes = [c_uint8, c_bool]
@@ -170,6 +162,14 @@ class SpcQcDllWrapper:
     for serStr in serialNumber:
       self.serialNumber.append(str(serStr.value)[2:-1])
     return res.value
+
+  def set_measurement_configuration(self, operationMode, timeRange, frontClipping, resolution):
+    arg1 = c_uint8(operationMode)
+    arg2 = c_uint32(timeRange)
+    arg3 = c_uint32(frontClipping)
+    arg4 = c_uint8(resolution)
+    ret = c_int16(self.__set_measurement_configuration(arg1, byref(arg2), byref(arg3), byref(arg4)))
+    return ret.value, arg2.value, arg3.value, arg4.value
 
   def set_dt_mode(self, enable):
     arg = c_bool(enable)
