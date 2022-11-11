@@ -2,13 +2,13 @@ from distutils.core import setup
 setup(
   name = 'bhpy',
   packages = ['bhpy'],
-  version = '0.0.1',
+  version = '0.0.3',
   license='MIT',
   description = "Python bindings to use Becker & Hickls' hardware control dll and API",
   author = 'Marscheck',
   author_email = 'marscheck@becker-hickl.de',
   url = 'https://www.becker-hickl.com/',
-  download_url = 'https://github.com/bhmarscheck/bhpy/archive/refs/tags/v0.0.1-alpha.tar.gz',
+  download_url = 'https://github.com/bhmarscheck/bhpy/archive/refs/tags/v0.0.3-alpha.tar.gz',
   keywords = ['FLIM', 'Fluorescence lifetime', 'TCSPC', 'photon counting', 'BH', 'Becker&Hickl', 'molecular imaging', 'SPC', 'SPCM'],
   install_requires=[],
   classifiers=[
@@ -26,5 +26,6 @@ setup(
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    "Operating System :: OS Independent",
   ],
 )
