@@ -3,7 +3,7 @@ setup(
   name = 'bhpy',
   packages = ['bhpy'],
   version = '0.0.3',
-  license='MIT',
+  license='MIT License',
   description = "Python bindings to use Becker & Hickls' hardware control dll and API",
   author = 'Marscheck',
   author_email = 'marscheck@becker-hickl.de',
