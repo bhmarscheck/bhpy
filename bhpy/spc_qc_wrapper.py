@@ -2,6 +2,7 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
+  import numpy
   import pathlib
   import argparse
   from ctypes import byref, c_int16, addressof, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
@@ -306,11 +307,13 @@ class SpcQcDllWrapper:
     return self.__run_data_collection(arg1, arg2)
 
   def get_raw_events_from_buffer(self, maxEvents, cardNumber):
-    generate numpy aray of desired size and send to dll
-    return
-    self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
-    self.__get_raw_events_from_buffer.argtypes = [c_void_p, c_uint32]
-    self.__get_raw_events_from_buffer.restype = c_int64
+    buffer = numpy.array([0]*int(maxEvents), dtype=numpy.uint32)
+    arg2 = c_uint32(maxEvents)
+    arg3 = c_uint8(cardNumber)
+    events = self.__get_raw_events_from_buffer(buffer.ctypes.data, arg2, arg3)
+    if events:
+      return buffer[:int(events)], events
+    return numpy.array([]), events
 
   def deinit_data_collection(self):
     self.__run_data_collection()

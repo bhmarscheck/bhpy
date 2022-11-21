@@ -2,15 +2,15 @@ from distutils.core import setup
 setup(
   name = 'bhpy',
   packages = ['bhpy'],
-  version = '0.0.3',
+  version = '0.0.4',
   license='MIT License',
   description = "Python bindings to use Becker & Hickls' hardware control dll and API",
   author = 'Marscheck',
   author_email = 'marscheck@becker-hickl.de',
   url = 'https://www.becker-hickl.com/',
-  download_url = 'https://github.com/bhmarscheck/bhpy/archive/refs/tags/v0.0.3-alpha.tar.gz',
+  download_url = 'https://github.com/bhmarscheck/bhpy/archive/refs/tags/v0.0.4-alpha.tar.gz',
   keywords = ['FLIM', 'Fluorescence lifetime', 'TCSPC', 'photon counting', 'BH', 'Becker&Hickl', 'molecular imaging', 'SPC', 'SPCM'],
-  install_requires=[],
+  install_requires=['numpy>=1.23.0,<2'],
   classifiers=[
     'Development Status :: 3 - Alpha', # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
     'Intended Audience :: Science/Research',
