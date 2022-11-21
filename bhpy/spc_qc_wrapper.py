@@ -6,7 +6,7 @@ try:
   import pathlib
   import argparse
   from ctypes import byref, c_int16, addressof, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
-                     c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union, Tuple,\
+                     c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union,\
                      LittleEndianStructure
 except ModuleNotFoundError as err:
   # Error handling
@@ -173,7 +173,7 @@ class SpcQcDllWrapper:
 
     for serStr in serialNumber:
       self.serialNumber.append(str(serStr.value)[2:-1])
-    return ret.value
+    return ret
 
   def set_measurement_configuration(self, operationMode, timeRange, frontClipping, resolution):
     arg1 = c_uint8(operationMode)
@@ -263,20 +263,20 @@ class SpcQcDllWrapper:
     return self.__write_setting(arg1, arg2)
 
   def deinit(self):
-    return self._deinit()
-  
+    return self.__deinit()
+
   def get_rates(self, channel):
     arg = c_uint8(channel)
     return self.__get_rates(arg)
-  
+
   def get_marker_status(self, marker):
     arg = c_uint8(marker)
     return self.__get_marker_status(arg)
-  
+
   def set_stop_on_timer(self, enable):
     arg = c_bool(enable)
     return self.__set_stop_on_timer(arg)
-  
+
   def get_module_status(self) -> dict:
     ms = ModuleStatus()
     ms.asBytes = self.__get_module_status()
@@ -291,12 +291,12 @@ class SpcQcDllWrapper:
   def set_timer_duration(self, nsTime):
     arg = c_double(nsTime)
     return self.__set_timer_duration(arg)
-  
+
   def set_channel_delay(self, channel, nsDelay) -> float:
     arg1 = c_uint8(channel)
     arg2 = c_float(nsDelay)
     return self.__set_channel_delay(arg1, arg2)
-    
+
   def initialise_data_collection(self, fifoSize):
     arg = c_uint64(fifoSize)
     return self.__initialise_data_collection(arg)
@@ -316,10 +316,13 @@ class SpcQcDllWrapper:
     return numpy.array([]), events
 
   def deinit_data_collection(self):
-    self.__run_data_collection()
+    self.__deinit_data_collection()
 
   def stop_data_collection(self):
     self.__stop_data_collection()
+
+  def get_firmware_version(self):
+    return self.__get_firmware_version()
 
 def main():
   home_drive = pathlib.Path.home().drive
