@@ -14,11 +14,14 @@ class SpcQc104Conf():
   negativeEdge = "\u035E  |\u035F   (falling)"
   posNegList = [positiveEdge, negativeEdge]
   def __init__(self, configPath: str=default_path) -> None:
+    self.default_path = configPath
     self.selectedCard = '1'
     self.restore_defaults()
     self.load_conf(configPath)
 
-  def load_conf(self, confPath: str=default_path) -> None:
+  def load_conf(self, confPath = None) -> None:
+    if confPath is None:
+      confPath = self.default_path
     try:
       with open(confPath,"r") as f:
         jsonConf = json.load(f)
@@ -27,7 +30,9 @@ class SpcQc104Conf():
     except:
       self.write_conf(confPath)
 
-  def write_conf(self, confPath: str=default_path) -> None:
+  def write_conf(self, confPath = None) -> None:
+    if confPath is None:
+      confPath = self.default_path
     with open(confPath,"w") as f:
       json.dump(self.__dict__, f, indent = 2, sort_keys = True, default = str)
 
