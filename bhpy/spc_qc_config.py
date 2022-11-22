@@ -69,6 +69,9 @@ class SpcQc104Conf():
     self.channelDelay = [0., 0., 0., 0.]
     self.timeRange = 4_194_573
     self.frontClipping = 0
+    self.measuringDurationNs = 0
+    self.stopOnTime = False
+    self.dllAutoStopTimeNs = 0
 
   def restore_defaults(self) -> None:
     '''Resets all settings and parameters
