@@ -159,7 +159,7 @@ class SpcQcDllWrapper:
     self.__get_version(byref(self.versionStrBuf))
     self.versionStr = str(self.versionStrBuf.value)[2:-1]
 
-  def init(self, moduleList: list[int], logPath: str) -> int:
+  def init(self, moduleList: list[int], logPath: str, emulateHardware: bool=False) -> int:
     arg1 = (ModuleInit * len(moduleList))()
     self.serialNumber = []
     serialNumber = []
@@ -168,8 +168,10 @@ class SpcQcDllWrapper:
       serialNumber.append(create_string_buffer(16))
       arg1[i].serialNrStr = addressof(serialNumber[-1])
       arg1[i].deviceNr = c_uint8(moduleList[i])
-
-    ret = self.__init(arg1, c_uint8(len(moduleList)), logPath.encode('utf-8'))
+    
+    numberOfHwModules = len(moduleList) if emulateHardware == False else 0
+    
+    ret = self.__init(arg1, c_uint8(numberOfHwModules), logPath.encode('utf-8'))
 
     for serStr in serialNumber:
       self.serialNumber.append(str(serStr.value)[2:-1])

@@ -10,11 +10,16 @@ except ModuleNotFoundError as err:
 
 class SpcQc104Conf():
   default_path = f"{pathlib.Path.home().drive}/BHdata/pbPy/SpcQc104Conf.json"
-  positiveEdge = "\u035F  |\u035E   (rising)"
-  negativeEdge = "\u035E  |\u035F   (falling)"
-  posNegList = [positiveEdge, negativeEdge]
+
+  POSITIVE_EDGE = "͟  |͞   (rising)"
+  NEGATIVE_EDGE = "͞  |͟   (falling)"
+
+  POS_NEG_LIST = [POSITIVE_EDGE, NEGATIVE_EDGE]
+
+  DELTA_TIME_MODE = "Δt"
+
   def __init__(self, configPath: str=default_path) -> None:
-    self.default_path = configPath
+    SpcQc104Conf.default_path = configPath
     self.selectedCard = '1'
     self.restore_defaults()
     self.load_conf(configPath)
@@ -23,7 +28,7 @@ class SpcQc104Conf():
     if confPath is None:
       confPath = self.default_path
     try:
-      with open(confPath,"r") as f:
+      with open(confPath, 'r', encoding='utf8') as f:
         jsonConf = json.load(f)
         for name in jsonConf:
           setattr(self, name, jsonConf[name])
@@ -33,15 +38,17 @@ class SpcQc104Conf():
   def write_conf(self, confPath = None) -> None:
     if confPath is None:
       confPath = self.default_path
-    with open(confPath,"w") as f:
-      json.dump(self.__dict__, f, indent = 2, sort_keys = True, default = str)
+    confDict = self.__dict__
+    confDict.pop('default_path', None)
+    with open(confPath, 'w', encoding='utf8') as f:
+      json.dump(confDict, f, indent = 2, sort_keys = True, default = str, ensure_ascii=False)
 
   def restore_config(self) -> None:
     '''Resets the Hardware settings.
 
-    Settings that require little or no changes after initial setup because they
-    are tied to the measurement system's components and their assembly, get set
-    to values that are either the hardware defaults or good starting point'''
+    Settings that require little or no changes after initial setup because they are tied to the
+    measurement system's components and their assembly, get set to values that are either the
+    hardware defaults or good starting point'''
     # Channel wise settings
     self.threshold = [-50.0, -50.0, -50.0, -50.0]
     self.zeroCross = [12.0, 12.0, 12.0, 12.0]
@@ -52,26 +59,26 @@ class SpcQc104Conf():
 
     # Marker wise settings
     self.markerEn = [False, False, False, False]
-    self.markerEdge = [SpcQc104Conf.positiveEdge, SpcQc104Conf.positiveEdge,\
-      SpcQc104Conf.positiveEdge, SpcQc104Conf.positiveEdge]
+    self.markerEdge = [self.POSITIVE_EDGE, self.POSITIVE_EDGE, self.POSITIVE_EDGE, self.POSITIVE_EDGE]
 
     # Other settings
     self.ditheringEn = True
     self.externalTrigEn = False
-    self.triggerEdge = SpcQc104Conf.positiveEdge
+    self.triggerEdge = self.POSITIVE_EDGE
 
   def restore_measurement(self) -> None:
     '''Resets the measurement parameters
 
-    Parameters that are related to the individual measurement, that may be
-    changed according to the need of the test specimen or the expected/desired
-    experiment results'''
+    Parameters that are related to the individual measurement, that may be changed according to the
+    need of the test specimen or the expected/desired experiment results'''
     self.channelDelay = [0., 0., 0., 0.]
-    self.timeRange = 4_194_573
-    self.frontClipping = 0
+    self.timeRangePs = 4_194_573
+    self.frontClippingNs = 0
     self.measuringDurationNs = 0
     self.stopOnTime = False
     self.dllAutoStopTimeNs = 0
+    self.mode = self.DELTA_TIME_MODE
+    self.resolution = 12
 
   def restore_defaults(self) -> None:
     '''Resets all settings and parameters
