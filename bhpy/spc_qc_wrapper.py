@@ -28,6 +28,9 @@ class ModuleStatus(Union):
     _fields_ = [("b", ModuleStatusFlags),
                 ("asByte", c_uint8)]
 
+class HardwareError(IOError):
+  pass
+
 class SpcQcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
@@ -164,13 +167,15 @@ class SpcQcDllWrapper:
     self.serialNumber = []
     serialNumber = []
 
+    self.logPath = logPath
+
     for i in range(len(moduleList)):
       serialNumber.append(create_string_buffer(16))
       arg1[i].serialNrStr = addressof(serialNumber[-1])
       arg1[i].deviceNr = c_uint8(moduleList[i])
-    
+
     numberOfHwModules = len(moduleList) if emulateHardware == False else 0
-    
+
     ret = self.__init(arg1, c_uint8(numberOfHwModules), logPath.encode('utf-8'))
 
     for serStr in serialNumber:
@@ -292,7 +297,10 @@ class SpcQcDllWrapper:
 
   def set_timer_duration(self, nsTime):
     arg = c_double(nsTime)
-    return self.__set_timer_duration(arg)
+    ret = self.__set_timer_duration(arg)
+    if ret < 0:
+      raise HardwareError(f"DLL call set_timer_duration() returned with {int(ret)}, more details: {self.logPath}")
+    return ret
 
   def set_channel_delay(self, channel, nsDelay) -> float:
     arg1 = c_uint8(channel)
