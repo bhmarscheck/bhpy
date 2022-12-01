@@ -2,7 +2,9 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-  import numpy
+  import threading
+  import numpy as np
+  import numpy.typing as npt
   import pathlib
   import argparse
   from ctypes import byref, c_int16, addressof, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
@@ -148,11 +150,11 @@ class SpcQcDllWrapper:
     self.__initialise_data_collection.restype = c_int16
 
     self.__run_data_collection = self.__dll.run_data_collection
-    self.__run_data_collection.argtype = c_uint32
+    self.__run_data_collection.argtypes = [c_uint32, c_uint32]
     self.__run_data_collection.restype = c_int16
 
     self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
-    self.__get_raw_events_from_buffer.argtypes = [c_void_p, c_uint32]
+    self.__get_raw_events_from_buffer.argtypes = [c_void_p, c_uint32, c_uint8]
     self.__get_raw_events_from_buffer.restype = c_int64
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
@@ -189,14 +191,6 @@ class SpcQcDllWrapper:
     arg4 = c_uint8(resolution)
     ret = self.__set_measurement_configuration(arg1, byref(arg2), byref(arg3), byref(arg4))
     return ret, arg2.value, arg3.value, arg4.value
-
-  def set_dt_mode(self, enable):
-    arg = c_bool(enable)
-    return self.__set_dt_mode(arg)
-
-  def set_time_range(self, timeRange):
-    arg = c_uint32(timeRange)
-    return self.__set_time_range(arg)
 
   def set_lower_limit(self, frontClipping):
     arg = c_uint16(frontClipping)
@@ -316,14 +310,29 @@ class SpcQcDllWrapper:
     arg2 = c_uint32(timeoutMs)
     return self.__run_data_collection(arg1, arg2)
 
-  def get_raw_events_from_buffer(self, maxEvents, cardNumber):
-    buffer = numpy.array([0]*int(maxEvents), dtype=numpy.uint32)
+  def get_raw_events_from_buffer(self, buffer: npt.NDArray[np.uint32], maxEvents, cardNumber):
     arg2 = c_uint32(maxEvents)
     arg3 = c_uint8(cardNumber)
     events = self.__get_raw_events_from_buffer(buffer.ctypes.data, arg2, arg3)
-    if events:
-      return buffer[:int(events)], events
-    return numpy.array([]), events
+    return buffer, events
+
+  def get_events_from_buffer_to_file(self, cardNumber, filePath, threadEvent: threading.Event):
+    with open(filePath, 'wb') as file:
+      buffer_size = 8388607
+      buffer = np.array([0]*int(buffer_size), dtype=np.uint32) # 1GiB
+      arg2 = c_uint32(buffer_size)#0x7F_FFFF)#4000_0000)
+      arg3 = c_uint8(cardNumber)
+
+      while not threadEvent.isSet():
+        events = self.__get_raw_events_from_buffer(buffer.ctypes.data, buffer_size, arg3)
+        if events > 0:
+          file.write(buffer[:int(events)])
+
+      events = self.__get_raw_events_from_buffer(buffer.ctypes.data, c_uint32(0), arg3)
+      while events > 0:
+        events = self.__get_raw_events_from_buffer(buffer.ctypes.data, arg2, arg3)
+        if events > 0:
+          file.write(buffer[:int(events)])
 
   def deinit_data_collection(self):
     self.__deinit_data_collection()
