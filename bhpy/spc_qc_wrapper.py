@@ -40,8 +40,8 @@ class SpcQcDllWrapper:
   def __init__(self, filename):
     self.__dll = CDLL(filename)
 
-    self.__get_version = self.__dll.get_version
-    self.__get_version.restype = c_int16
+    self.__get_dll_version = self.__dll.get_dll_version
+    self.__get_dll_version.restype = c_int16
 
     self.__init = self.__dll.init
     self.__init.restype = c_int16
@@ -80,25 +80,25 @@ class SpcQcDllWrapper:
     self.__get_marker_status.argtype = c_uint8
     self.__get_marker_status.restype = c_int8
 
-    self.__set_external_trigger_use = self.__dll.set_external_trigger_use
-    self.__set_external_trigger_use.argtype = c_bool
-    self.__set_external_trigger_use.restype = c_int8
+    self.__set_external_trigger_enable = self.__dll.set_external_trigger_enable
+    self.__set_external_trigger_enable.argtype = c_bool
+    self.__set_external_trigger_enable.restype = c_int8
 
-    self.__set_trigger_edge = self.__dll.set_trigger_edge
-    self.__set_trigger_edge.argtype = c_uint8
-    self.__set_trigger_edge.restype = c_int8
+    self.__set_trigger_polarity = self.__dll.set_trigger_polarity
+    self.__set_trigger_polarity.argtype = c_uint8
+    self.__set_trigger_polarity.restype = c_int8
 
-    self.__set_routing_delay = self.__dll.set_routing_delay
-    self.__set_routing_delay.argtype = c_int8
-    self.__set_routing_delay.restype = c_int8
+    self.__set_routing_compensation = self.__dll.set_routing_compensation
+    self.__set_routing_compensation.argtype = c_int8
+    self.__set_routing_compensation.restype = c_int8
 
     self.__set_routing_enable = self.__dll.set_routing_enable
     self.__set_routing_enable.argtypes = [c_uint8, c_bool]
     self.__set_routing_enable.restype = c_int8
 
-    self.__set_stop_on_timer = self.__dll.set_stop_on_timer
-    self.__set_stop_on_timer.argtype = c_bool
-    self.__set_stop_on_timer.restype = c_int8
+    self.__set_hardware_countdown_enable = self.__dll.set_hardware_countdown_enable
+    self.__set_hardware_countdown_enable.argtype = c_bool
+    self.__set_hardware_countdown_enable.restype = c_int8
 
     self.__set_marker_edge = self.__dll.set_marker_polarity
     self.__set_marker_edge.argtypes = [c_uint8, c_uint8]
@@ -107,27 +107,20 @@ class SpcQcDllWrapper:
     self.__get_module_status = self.__dll.get_module_status
     self.__get_module_status.restype = c_uint8
 
-    self.__start_measurement = self.__dll.start_measurement
-    self.__start_measurement.restype = c_int8
-
     self.__stop_measurement = self.__dll.stop_measurement
     self.__stop_measurement.restype = c_int8
 
-    self.__set_timer_duration = self.__dll.set_timer_duration
-    self.__set_timer_duration.argtype = c_double
-    self.__set_timer_duration.restype = c_double
+    self.__set_hardware_countdown_time = self.__dll.set_hardware_countdown_time
+    self.__set_hardware_countdown_time.argtype = c_double
+    self.__set_hardware_countdown_time.restype = c_double
 
     self.__set_marker_enable = self.__dll.set_marker_enable
     self.__set_marker_enable.argtypes = [c_uint8, c_bool]
     self.__set_marker_enable.restype = c_int8
 
-    self.__set_sync_divider = self.__dll.set_sync_divider
-    self.__set_sync_divider.argtypes = [c_uint8, c_uint8]
-    self.__set_sync_divider.restype = c_int8
-
-    self.__set_sync_enable = self.__dll.set_sync_enable
-    self.__set_sync_enable.argtypes = [c_uint8, c_bool]
-    self.__set_sync_enable.restype = c_int8
+    self.__set_channel_divider = self.__dll.set_channel_divider
+    self.__set_channel_divider.argtypes = [c_uint8, c_uint8]
+    self.__set_channel_divider.restype = c_int8
 
     self.__set_dithering_enable = self.__dll.set_dithering_enable
     self.__set_dithering_enable.argtype = c_bool
@@ -145,9 +138,9 @@ class SpcQcDllWrapper:
     self.__set_CFD_zc.argtypes = [c_uint8, c_float]
     self.__set_CFD_zc.restype = c_float
 
-    self.__initialise_data_collection = self.__dll.initialise_data_collection
-    self.__initialise_data_collection.argtype = c_uint64
-    self.__initialise_data_collection.restype = c_int16
+    self.__initialize_data_collection = self.__dll.initialize_data_collection
+    self.__initialize_data_collection.argtype = c_uint64
+    self.__initialize_data_collection.restype = c_int16
 
     self.__run_data_collection = self.__dll.run_data_collection
     self.__run_data_collection.argtypes = [c_uint32, c_uint32]
@@ -159,9 +152,7 @@ class SpcQcDllWrapper:
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
 
-    self.__stop_data_collection = self.__dll.stop_data_collection
-
-    self.__get_version(byref(self.versionStrBuf))
+    self.__get_dll_version(byref(self.versionStrBuf))
     self.versionStr = str(self.versionStrBuf.value)[2:-1]
 
   def init(self, moduleList: list[int], logPath: str, emulateHardware: bool=False) -> int:
@@ -210,24 +201,19 @@ class SpcQcDllWrapper:
     arg = c_uint8(focusOnCardNr)
     return self.__set_card_focus(arg)
 
-  def set_routing_delay(self, delay):
+  def set_routing_compensation(self, delay):
     arg = c_int8(delay)
-    return self.__set_routing_delay(arg)
+    return self.__set_routing_compensation(arg)
 
   def set_routing_enable(self, channel, state):
     arg1 = c_uint8(channel)
     arg2 = c_bool(state)
     return self.__set_routing_enable(arg1, arg2)
 
-  def set_sync_enable(self, channel, state):
-    arg1 = c_uint8(channel)
-    arg2 = c_bool(state)
-    return self.__set_sync_enable(arg1, arg2)
-
-  def set_sync_divider(self, channel, divider: int) -> int:
+  def set_channel_divider(self, channel, divider: int) -> int:
     arg1 = c_uint8(int(channel))
     arg2 = c_uint8(divider)
-    return self.__set_sync_divider(arg1, arg2)
+    return self.__set_channel_divider(arg1, arg2)
 
   def set_marker_enable(self, marker, state):
     arg1 = c_uint8(marker)
@@ -243,13 +229,13 @@ class SpcQcDllWrapper:
     arg1 = c_bool(state)
     return self.__set_dithering_enable(arg1)
 
-  def set_external_trigger_use(self, state):
+  def set_external_trigger_enable(self, state):
     arg1 = c_bool(state)
-    return self.__set_external_trigger_use(arg1)
+    return self.__set_external_trigger_enable(arg1)
 
-  def set_trigger_edge(self, edge):
+  def set_trigger_polarity(self, edge):
     arg1 = c_uint8(edge)
-    return self.__set_trigger_edge(arg1)
+    return self.__set_trigger_polarity(arg1)
 
   def reset_registers(self):
     return self.__reset_registers()
@@ -274,26 +260,23 @@ class SpcQcDllWrapper:
     arg = c_uint8(marker)
     return self.__get_marker_status(arg)
 
-  def set_stop_on_timer(self, enable):
+  def set_hardware_countdown_enable(self, enable):
     arg = c_bool(enable)
-    return self.__set_stop_on_timer(arg)
+    return self.__set_hardware_countdown_enable(arg)
 
   def get_module_status(self) -> dict:
     ms = ModuleStatus()
     ms.asBytes = self.__get_module_status()
     return dict((field, getattr(ms.b, field)) for field, _ in ms.b._fields_)
 
-  def start_measurement(self):
-    return self.__start_measurement()
-
   def stop_measurement(self):
     return self.__stop_measurement()
 
-  def set_timer_duration(self, nsTime):
+  def set_hardware_countdown_time(self, nsTime):
     arg = c_double(nsTime)
-    ret = self.__set_timer_duration(arg)
+    ret = self.__set_hardware_countdown_time(arg)
     if ret < 0:
-      raise HardwareError(f"DLL call set_timer_duration() returned with {int(ret)}, more details: {self.logPath}")
+      raise HardwareError(f"DLL call set_hardware_countdown_time() returned with {int(ret)}, more details: {self.logPath}")
     return ret
 
   def set_channel_delay(self, channel, nsDelay) -> float:
@@ -301,9 +284,9 @@ class SpcQcDllWrapper:
     arg2 = c_float(nsDelay)
     return self.__set_channel_delay(arg1, arg2)
 
-  def initialise_data_collection(self, fifoSize):
+  def initialize_data_collection(self, fifoSize):
     arg = c_uint64(fifoSize)
-    return self.__initialise_data_collection(arg)
+    return self.__initialize_data_collection(arg)
 
   def run_data_collection(self, acquisitionTimeMs, timeoutMs):
     arg1 = c_uint32(acquisitionTimeMs)
@@ -336,9 +319,6 @@ class SpcQcDllWrapper:
 
   def deinit_data_collection(self):
     self.__deinit_data_collection()
-
-  def stop_data_collection(self):
-    self.__stop_data_collection()
 
   def get_firmware_version(self):
     return self.__get_firmware_version()
