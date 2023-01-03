@@ -300,6 +300,7 @@ class SpcQcDllWrapper:
     return buffer, events
 
   def get_events_from_buffer_to_file(self, cardNumber, filePath, threadEvent: threading.Event):
+    pathlib.Path(filePath).parent.mkdir(parents=True, exist_ok=True)
     with open(filePath, 'wb') as file:
       buffer_size = 8388607
       buffer = np.array([0]*int(buffer_size), dtype=np.uint32) # 1GiB
