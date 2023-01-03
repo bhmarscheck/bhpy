@@ -2,6 +2,7 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
+  import appdirs
   import pathlib
   import json
 except ModuleNotFoundError as err:
@@ -9,7 +10,7 @@ except ModuleNotFoundError as err:
   log.error(err)
 
 class SpcQc104Conf():
-  default_path = f"{pathlib.Path.home().drive}/BHdata/pbPy/SpcQc104Conf.json"
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='SPC-QC-104 GUI')}/SpcQc104Conf.json"
 
   POSITIVE_EDGE = "͟  |͞   (rising)"
   NEGATIVE_EDGE = "͞  |͟   (falling)"
@@ -40,6 +41,7 @@ class SpcQc104Conf():
       confPath = self.default_path
     confDict = self.__dict__
     confDict.pop('default_path', None)
+    pathlib.Path(confPath).parent.mkdir(parents=True, exist_ok=True)
     with open(confPath, 'w', encoding='utf8') as f:
       json.dump(confDict, f, indent = 2, sort_keys = True, default = str, ensure_ascii=False)
 
