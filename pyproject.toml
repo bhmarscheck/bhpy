@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bhpy"
-version = "1.0.1"
+version = "2.0.0"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]
@@ -38,4 +38,4 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://www.becker-hickl.com"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
-"Download" = "https://github.com/bhmarscheck/bhpy/archive/refs/tags/v1.0.1.tar.gz"
+"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v2.0.0/bhpy-v2.0.0.tar.gz"
