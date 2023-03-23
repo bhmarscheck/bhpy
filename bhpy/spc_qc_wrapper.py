@@ -58,6 +58,8 @@ class SpcQcDllWrapper:
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
 
+    self.__deinit_data_collections = self.__dll.deinit_data_collections
+
     self.__deinit = self.__dll.deinit
     self.__deinit.restype = c_uint8
 
@@ -190,6 +192,9 @@ class SpcQcDllWrapper:
 
   def deinit_data_collection(self):
     self.__deinit_data_collection()
+
+  def deinit_data_collections(self):
+    self.__deinit_data_collections()
 
   def deinit(self):
     return self.__deinit()
@@ -417,9 +422,9 @@ def main():
 
   print(dll_path)
 
-  if not dll_path.exists:
+  if not dll_path.exists():
     dll_path = pathlib.Path(f"{home_drive}/Program Files/BH/SPCM/spc_qc_104.dll")
-    if not dll_path.exists:
+    if not dll_path.exists():
       print(".../spc_qc_104.dll was neither found at default location nor at the specified path")
       exit()
 
