@@ -2,15 +2,16 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-  from ctypes import byref, c_int16, addressof, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
-                     c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union,\
-                     LittleEndianStructure, c_char, c_int32
+  from ctypes import byref, c_int16, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
+                     c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64,\
+                     Union, LittleEndianStructure, c_char, c_int32
   import argparse
   import numpy as np
   import numpy.typing as npt
   import pathlib
   import re
   import threading
+  import winreg
 except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
@@ -39,8 +40,18 @@ class SpcQcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
-  def __init__(self, filename):
-    self.__dll = CDLL(filename)
+  def __init__(self, dllPath = None):
+    if dllPath is None:
+      spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
+      dllPath = pathlib.Path(spcmPath).parent / "DLL/spc_qc_104.dll"
+    else:
+      dllPath = pathlib.Path(dllPath)
+    
+    try:
+      self.__dll = CDLL(str(dllPath.absolute()))
+    except FileNotFoundError as e:
+      log.error(e)
+      raise
 
     self.__get_dll_version = self.__dll.get_dll_version
     self.__get_dll_version.argtypes = [c_char_p, c_uint8]
@@ -57,6 +68,8 @@ class SpcQcDllWrapper:
       raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {major}.{minor}.{patch} Expected >= 2.0.0, < 3")
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
+
+    self.__deinit_data_collections = self.__dll.deinit_data_collections
 
     self.__deinit = self.__dll.deinit
     self.__deinit.restype = c_uint8
@@ -190,6 +203,9 @@ class SpcQcDllWrapper:
 
   def deinit_data_collection(self):
     self.__deinit_data_collection()
+
+  def deinit_data_collections(self):
+    self.__deinit_data_collections()
 
   def deinit(self):
     return self.__deinit()
@@ -407,26 +423,18 @@ class SpcQcDllWrapper:
     return self.__write_setting(arg1, arg2)
 
 def main():
-  home_drive = pathlib.Path.home().drive
-  parser = argparse.ArgumentParser(prog="bhPy", description="SPC-QC-104 dll wrapper that provides python bindings to use Becker&Hickls' SPC-QC-104 hardware through the dll")
-  parser.add_argument('dll_path', nargs='?', default=f'{home_drive}/Program Files (x86)/BH/SPCM/spc_qc_104.dll')
+  parser = argparse.ArgumentParser(prog="SPC-QC-104 DLL Wrapper", description="SPC-QC-104 dll wrapper that provides python bindings to use Becker&Hickls' SPC-QC-104 hardware through the dll")
+  parser.add_argument('dll_path', nargs='?', default=None)
 
   args = parser.parse_args()
 
   dll_path = pathlib.Path(args.dll_path)
 
-  print(dll_path)
-
-  if not dll_path.exists:
-    dll_path = pathlib.Path(f"{home_drive}/Program Files/BH/SPCM/spc_qc_104.dll")
-    if not dll_path.exists:
-      print(".../spc_qc_104.dll was neither found at default location nor at the specified path")
-      exit()
-
-  spcQcDll = SpcQcDllWrapper(str(dll_path))
+  spcQcDll = SpcQcDllWrapper(dll_path)
   print(spcQcDll.versionStr)
   spcQcDll.init([0], emulateHardware=True)
   print(spcQcDll.serialNumber)
+  input("press enter...")
 
 if __name__ == '__main__':
   main()
