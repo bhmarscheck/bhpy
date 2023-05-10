@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bhpy"
-version = "2.0.0"
+version = "2.1.0"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]
 dependencies = [
-  "numpy >= 1.23.5, <2",
+  "numpy >= 1.24.2, <2",
   "appdirs >= 1.4.4, <2"
 ]
 description = "Python bindings to use Becker & Hickls' hardware control dll and API"
@@ -38,4 +38,4 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://www.becker-hickl.com"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
-"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v2.0.0/bhpy-v2.0.0.tar.gz"
+"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v2.1.0/bhpy-v2.1.0.tar.gz"
