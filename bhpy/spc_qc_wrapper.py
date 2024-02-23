@@ -43,7 +43,7 @@ class SpcQcDllWrapper:
   def __init__(self, dllPath = None):
     if dllPath is None:
       spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
-      dllPath = pathlib.Path(spcmPath).parent / "DLL/spc_qc_104.dll"
+      dllPath = pathlib.Path(spcmPath).parent / "DLL/spc_qc_X04.dll"
     else:
       dllPath = pathlib.Path(dllPath)
     
@@ -66,6 +66,8 @@ class SpcQcDllWrapper:
     patch = int(match.group(3))
     if (major != 2):
       raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {major}.{minor}.{patch} Expected >= 2.0.0, < 3")
+    
+    self.__abort_data_collection = self.__dll.abort_data_collection
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
 
@@ -201,6 +203,9 @@ class SpcQcDllWrapper:
     self.__write_setting.argtypes = [c_uint16, c_uint32]
     self.__write_setting.restype = c_uint32
 
+  def abort_data_collection(self):
+    self.__abort_data_collection()
+
   def deinit_data_collection(self):
     self.__deinit_data_collection()
 
@@ -272,7 +277,7 @@ class SpcQcDllWrapper:
     self.logPath = logPath
 
     for i in range(len(moduleList)):
-      arg1[i].initialzed = False
+      arg1[i].initialized = False
       arg1[i].serialNrStr = bytes(0)
       arg1[i].deviceNr = c_uint8(moduleList[i])
 
@@ -282,12 +287,12 @@ class SpcQcDllWrapper:
     ret = self.__init(arg1, c_uint8(numberOfHwModules), lpArg)
     # Structure objects (arg1) are automatically passed byref
 
-    for modul in arg1:
-      self.serialNumber.append(str(modul.serialNrStr)[2:-1])
+    for module in arg1:
+      self.serialNumber.append(str(module.serialNrStr)[2:-1])
     return ret
 
-  def initialize_data_collection(self, fifoSize):
-    arg = c_uint64(fifoSize)
+  def initialize_data_collection(self, eventSize):
+    arg = c_uint64(eventSize)
     self.__initialize_data_collection(byref(arg))
     return arg.value
 
