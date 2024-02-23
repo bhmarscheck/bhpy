@@ -70,23 +70,14 @@ class BHRemoteControl():
     self.privateKey = None
     self.privateKeySize = None
 
-    self.serviceInfos = []
+    self.serviceInfo = None
   
   def __on_service_state_change(self, zeroconf: Zeroconf, service_type, name, state_change):
     if state_change is ServiceStateChange.Added:
       a = zeroconf.get_service_info(service_type, name)
-      print(a)
-      name: list[str] = a.name.split('.', 1)[0].split(':')
-      if name[0] == "SPCMRemoteControl":
-        self.serviceInfos.append(a)
-        id = name[1].split('(', 1)
-        if int(id[0]) == self.mdnsServiceID:
-          try:
-            if int(id[1].split(')', 1)[0]) >= self.mdnsIDCounter:
-              self.wait.set()
-          except IndexError:
-            if self.mdnsIDCounter == 0:
-              self.wait.set()
+      if a.name == f"SPCMRemoteControl:{self.mdnsServiceID}._bhipc._tcp.local.":
+        self.serviceInfo = a
+        self.wait.set()
 
   def __encrypt_msg(self, plainMsg):
     #generate session key
@@ -146,62 +137,48 @@ class BHRemoteControl():
     instanceFound = False
     if serviceID is None:
       serviceID = 1
-    self.serviceInfos = []
+    self.serviceInfo = []
     self.mdnsServiceID = serviceID
     self.mdnsIDCounter = 0
     retries = 0
-    while not instanceFound and (retries < 3):
+    while retries < 3:
       zeroconf = Zeroconf()
-      zeroconf.add_service_listener("_bhipc._tcp.local.", listener=(self.__on_service_state_change,))
+      zeroconf.add_service_listener(f"_bhipc._tcp.local.", listener=(self.__on_service_state_change,))
       self.wait = threading.Event()
       self.wait.wait(3)
       zeroconf.remove_all_service_listeners() 
-      if self.serviceInfos:
-        for serviceInfo in self.serviceInfos:
-          IDCount = re.findall("(?<=\()\d+(?=\))", serviceInfo.name)
-          try:
-            idCount = int(IDCount[0])
-            if idCount > self.mdnsIDCounter:
-              self.mdnsIDCounter = idCount
-              bestMatch = serviceInfo
-          except IndexError:
-            if self.mdnsIDCounter == 0:
-              bestMatch = serviceInfo
-
-        host = bestMatch.server.split('.', 1)[0]
-        if self.__wait_host_port(host, bestMatch.port):
+      if self.serviceInfo:
+        host = self.serviceInfo.server.split('.', 1)[0]
+        if self.__wait_host_port(host, self.serviceInfo.port):
           instanceFound = True
           self.host = host
-          self.port = bestMatch.port
-        else:
-          retries += 1
-          self.mdnsIDCounter += 1
-      else:
-        retries += 1
+          self.port = self.serviceInfo.port
+          break
+      retries += 1
 
-    if not instanceFound:
-      self.host = None
-      self.port = 54711 #TODO set to whatever is default
+    if not instanceFound: 
+      self.host = None #this might be redundant since both should be None anyway
+      self.port = None
 
     return instanceFound
   
   def connectSpcmInstance(self, host: str = None, port: int = None, serviceID: int = None):
-    if host is None:
-      if self.host is None or self.port is None:
-        self.findSpcmInstance(serviceID)
-      host = self.host
-    else:
-      self.host = host
+    if (host is None and port is not None) or (host is not None and port is None):
+        raise ValueError("Arguments host and port must be provided or both must be None.")
     
-    if port is None:
-      if self.host is None or self.port is None:
-        self.findSpcmInstance(serviceID)
+    if host is None: # when host is port is implicitly None as well
+      if self.host is None: # when self.host is None self.port is implicitly None as well (see constructor)
+        if not self.findSpcmInstance(serviceID):
+          if serviceID is None:
+            raise ValueError("Default instance (ID 1) not found. A discoverable ID, host and port, or self.host and self.port must be provided.")
+          else:
+            raise ValueError(f"Instance with ID {serviceID} not found. A discoverable ID, host and port, or self.host and self.port must be provided.")
+      host = self.host
       port = self.port
-    else:
-      self.port = port
     
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.connect((host, port))
+
 
     self.privateKey = RSA.generate(2048)
     self.privateKeySize = self.privateKey.size_in_bytes()
@@ -233,9 +210,9 @@ class BHRemoteControl():
 
     if answer.startswith("OK"):
       if answer.startswith("OK:"):
-        answer = answer.split(':')[1]
+        answer = answer.split(':', 1)[1]
         try:
-          value = float(answer)
+          value = float(answer.strip("\x00"))
           return value
         except:
           return answer
