@@ -36,6 +36,130 @@ class ModuleStatus(Union):
 class HardwareError(IOError):
   pass
 
+class __TdcDllWrapper:
+  versionStr = ""
+  versionStrBuf = create_string_buffer(128)
+
+  def __init__(self, defaultDllName, dllPath, dllIsDebugVersion):
+    if dllPath is None:
+      spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
+      dllPath = pathlib.Path(spcmPath).parent / f"DLL/{defaultDllName}.dll"
+    else:
+      dllPath = pathlib.Path(dllPath)
+    
+    try:
+      self.__dll = CDLL(str(dllPath.absolute()))
+    except FileNotFoundError as e:
+      log.error(e)
+      raise
+
+    self.__get_dll_version = self.__dll.get_dll_version
+    self.__get_dll_version.argtypes = [c_char_p, c_uint8]
+    self.__get_dll_version.restype = c_int16
+
+    self.__get_dll_version(self.versionStrBuf, c_uint8(128))
+    self.versionStr = str(self.versionStrBuf.value)[2:-1]
+
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", self.versionStr)
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    patch = int(match.group(3))
+    if (major != 2):
+      raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {major}.{minor}.{patch} Expected >= 2.0.0, < 3")
+    
+    self.__abort_data_collection = self.__dll.abort_data_collection
+
+    self.__deinit_data_collection = self.__dll.deinit_data_collection
+
+    self.__deinit_data_collections = self.__dll.deinit_data_collections
+
+    self.__deinit = self.__dll.deinit
+    self.__deinit.restype = c_uint8
+
+    self.__get_card_focus = self.__dll.get_card_focus
+    self.__get_card_focus.restype = c_uint8
+
+    self.__get_channel_enable = self.__dll.get_channel_enable
+    self.__get_channel_enable.argtypes = [c_uint8]
+    self.__get_channel_enable.restype = c_int8
+
+    self.__get_channel_enables = self.__dll.get_channel_enables
+    self.__get_channel_enables.restype = c_uint8
+
+    self.__get_external_trigger_enable = self.__dll.get_external_trigger_enable
+    self.__get_external_trigger_enable.restype = c_uint8
+
+    self.__get_firmware_version = self.__dll.get_firmware_version
+    self.__get_firmware_version.restype = c_uint16
+
+    self.__get_hardware_countdown_enable = self.__dll.get_hardware_countdown_enable
+    self.__get_hardware_countdown_enable.restype = c_uint8
+
+    self.__get_hardware_countdown_time = self.__dll.get_hardware_countdown_time
+    self.__get_hardware_countdown_time.restype = c_double
+
+    self.__get_rate = self.__dll.get_rate
+    self.__get_rate.argtypes = [c_uint8]
+    self.__get_rate.restype = c_int32
+
+    self.__get_rates = self.__dll.get_rates
+    self.__get_rates.argtypes = [POINTER(c_int32)]
+
+    self.__init = self.__dll.init
+    self.__init.argtypes = [POINTER(ModuleInit), c_uint8, c_char_p]
+    self.__init.restype = c_int16
+
+    self.__initialize_data_collection = self.__dll.initialize_data_collection
+    self.__initialize_data_collection.argtypes = [POINTER(c_uint64)]
+    self.__initialize_data_collection.restype = c_int16
+
+    if dllIsDebugVersion:
+      self.__read_setting = self.__dll.read_setting
+      self.__read_setting.argtypes = [c_uint16]
+      self.__read_setting.restype = c_uint32
+
+    self.__reset_registers = self.__dll.reset_registers
+
+    self.__run_data_collection = self.__dll.run_data_collection
+    self.__run_data_collection.argtypes = [c_uint32, c_uint32]
+    self.__run_data_collection.restype = c_int16
+
+    self.__set_card_focus = self.__dll.set_card_focus
+    self.__set_card_focus.argtypes = [c_uint8]
+    self.__set_card_focus.restype = c_uint8
+
+    self.__set_channel_enable = self.__dll.set_channel_enable
+    self.__set_channel_enable.argtypes = [c_uint8, c_bool]
+    self.__set_channel_enable.restype = c_int16
+
+    self.__set_channel_enables = self.__dll.set_channel_enables
+    self.__set_channel_enables.argtypes = [c_uint8]
+    self.__set_channel_enables.restype = c_int16
+
+    self.__set_external_trigger_enable = self.__dll.set_external_trigger_enable
+    self.__set_external_trigger_enable.argtypes = [c_bool]
+    self.__set_external_trigger_enable.restype = c_int16
+
+    self.__set_hardware_countdown_enable = self.__dll.set_hardware_countdown_enable
+    self.__set_hardware_countdown_enable.argtypes = [c_bool]
+    self.__set_hardware_countdown_enable.restype = c_int16
+
+    self.__set_hardware_countdown_time = self.__dll.set_hardware_countdown_time
+    self.__set_hardware_countdown_time.argtypes = [c_double]
+    self.__set_hardware_countdown_time.restype = c_double
+
+    self.__stop_measurement = self.__dll.stop_measurement
+    self.__stop_measurement.restype = c_int16
+
+    if dllIsDebugVersion:
+      self.__write_setting = self.__dll.write_setting
+      self.__write_setting.argtypes = [c_uint16, c_uint32]
+      self.__write_setting.restype = c_uint32
+
+class SpcQcX04Wrapper(__TdcDllWrapper):
+  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+    super().__init__("spc_qc_X04", dllPath, dllIsDebugVersion)
+
 class SpcQcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
