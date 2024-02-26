@@ -1,4 +1,4 @@
-from bhpy.spc_qc_wrapper import SpcQcDllWrapper, ModuleInit
-from bhpy.spc_qc_config import SpcQc104Conf
+from bhpy.spc_tdc_wrapper import SpcQcX04Wrapper, SpcQcX08Wrapper, PMSWrapper, ModuleInit
+from bhpy.spc_tdc_config import SpcQcX04Conf
 from bhpy.bh_device_scan_wrapper import BHDeviceScanWrapper
-from bhpy.bh_remote_control import BHRemoteControl
+from bhpy.bh_connect import BHConnect

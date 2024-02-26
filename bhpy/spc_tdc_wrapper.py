@@ -160,6 +160,14 @@ class SpcQcX04Wrapper(__TdcDllWrapper):
   def __init__(self, dllPath = None, dllIsDebugVersion = False):
     super().__init__("spc_qc_X04", dllPath, dllIsDebugVersion)
 
+class SpcQcX08Wrapper(__TdcDllWrapper):
+  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+    super().__init__("spc_qc_X08", dllPath, dllIsDebugVersion)
+
+class PMSWrapper(__TdcDllWrapper):
+  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+    super().__init__("pms_800", dllPath, dllIsDebugVersion)
+
 class SpcQcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
