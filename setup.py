@@ -31,4 +31,6 @@ setup(
     'Programming Language :: Python :: 3.11',
     'Operating System :: OS Independent',
   ],
+  include_package_data = True,
+  package_data={"bhpy": ['ControlQC008.dll']},
 )

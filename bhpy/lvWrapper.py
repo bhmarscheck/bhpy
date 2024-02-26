@@ -1,11 +1,15 @@
 from ctypes import create_string_buffer, CDLL, POINTER, c_char_p, c_float, c_int32
+import os
+import sys
 
 class LVConnectQC008Wrapper:
-  def __init__(self, machineName: str | None = None, errorStringBufferLen: int = 512, resultStringBufferLen: int = 512):
-    self.__dll = CDLL("f:/bh/SOFTWARE/BH-LabVIEW/BH-QC008/ControlQC008/ControlQC008.dll")
+  def __init__(self, dllPath: str | None = None, machineName: str | None = None, errorStringBufferLen: int = 512, resultStringBufferLen: int = 512):
+    if dllPath is None:
+      dir = os.path.dirname(sys.modules["bhpy"].__file__)
+      dllPath = os.path.join(dir, "ControlQC008.dll")
+    self.__dll = CDLL(dllPath)
     self.__Dll_ControlQC008 = self.__dll.Dll_ControlQC008
 
-    #JobCommand[], machineName[], ErrString[], ErrString_len, Result[], Result_len, Rates[], Rates_len
     self.__Dll_ControlQC008.argtypes = [c_char_p, c_char_p, c_char_p, c_int32, c_char_p, c_int32, POINTER(c_float), c_int32]
     self.__Dll_ControlQC008.restype = c_int32
     
@@ -42,7 +46,7 @@ class LVConnectQC008Wrapper:
       return None
 
 def main():
-  lVConnectQC008 = LVConnectQC008Wrapper()
+  lVConnectQC008 = LVConnectQC008Wrapper(dllPath="f:/bh/SOFTWARE/BH-LabVIEW/BH-QC008/ControlQC008/ControlQC008.dll")
   print(lVConnectQC008.command("ScrPrt", "c:\\Users\\enzo\\Desktop\\lvtest.png"))
   print(lVConnectQC008.get_rates())
 
