@@ -9,7 +9,7 @@ except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
 
-class SpcQc104Conf():
+class SpcQcX04Conf():
   default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='SPC-QC-104 GUI')}/SpcQc104Conf.json"
 
   POSITIVE_EDGE = "͟  |͞   (rising)"
@@ -20,7 +20,7 @@ class SpcQc104Conf():
   DELTA_TIME_MODE = "Δt"
 
   def __init__(self, configPath: str=default_path) -> None:
-    SpcQc104Conf.default_path = configPath
+    SpcQcX04Conf.default_path = configPath
     self.selectedCard = '1'
     self.restore_defaults()
     self.load_conf(configPath)

@@ -57,7 +57,7 @@ class _TraceReceiveHandler(socketserver.BaseRequestHandler):
       [traceVals.append(int.from_bytes(data[x:x+4], byteorder='little', signed=False)) for x in range(0, len(data), 4)]
     requestHandlerQueue.put(traceVals)
 
-class BHRemoteControl():
+class BHConnect():
   IMAGE_TYPES = Literal["1stMoment", "Fit", "Fitted"]
 
   def __init__(self, host = None, port = None):
