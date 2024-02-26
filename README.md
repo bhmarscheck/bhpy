@@ -29,7 +29,7 @@ Python wrapper for Becker&Hickl hardware control.
 
 ### BH Device Scan
 
-BH device scanning dll wrapper that provides python bindings to scan the system for all present Becker&Hickl devices, their serial number and firmware version.
+BH device scanning dll wrapper that provides Python bindings to scan the system for all present Becker&Hickl devices, their serial number and firmware version.
 
 ### Hardware Dll
 
