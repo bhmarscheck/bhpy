@@ -11,14 +11,14 @@ except ModuleNotFoundError as err:
   raise
 
 class Pms800Conf():
-  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/Pms800Conf.json"
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/Pms800/Config.json"
   pass
 
 class SpcQcX08Conf():
-  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX08Conf.json"
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX08/Config.json"
   pass
 class SpcQcX04Conf():
-  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX04Conf.json"
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX04/Config.json"
 
   POSITIVE_EDGE = "͟  |͞   (rising)"
   NEGATIVE_EDGE = "͞  |͟   (falling)"

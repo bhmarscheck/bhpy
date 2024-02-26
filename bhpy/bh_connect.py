@@ -34,7 +34,7 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
   def handle(self):
     data = self.request.recv(1)
     filename = self.request.recv(int.from_bytes(data)).decode()
-    imageDir = f"{appdirs.user_data_dir(appauthor='BH',appname='SPCConnectPythonClient')}/temp/{filename}"
+    imageDir = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect/temp/{filename}"
     Path(imageDir).parent.mkdir(parents=True, exist_ok=True)
     with open(imageDir,'wb') as f:
       data = self.request.recv(4096)
@@ -192,7 +192,7 @@ class BHConnect():
     self.privateKeySize = self.privateKey.size_in_bytes()
     self.publicKey = self.privateKey.public_key()
 
-    appDataDir = appdirs.user_data_dir(appauthor='BH',appname='SPCConnectPythonClient')
+    appDataDir = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect"
     Path(appDataDir).mkdir(parents=True, exist_ok=True)
     with open(f"{appDataDir}/cli_private.pem", "wb") as f:
       f.write(self.privateKey.export_key())
