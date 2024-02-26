@@ -10,7 +10,7 @@ except ModuleNotFoundError as err:
   log.error(err)
   raise
 
-class LVConnectQC008Wrapper:
+class LVConnectQC008:
   def __init__(self, dllPath: Path | str | None = None, machineName: str | None = None, errorStringBufferLen: int = 512, resultStringBufferLen: int = 512):
     if dllPath is None:
       dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/ControlQC008.dll")
@@ -58,8 +58,8 @@ class LVConnectQC008Wrapper:
 def main():
   import bhpy
   import appdirs
-  lVConnectQC008 = LVConnectQC008Wrapper()
-  print(lVConnectQC008.command("ScrPrt", f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}\\lvtest.png"))
+  lVConnectQC008 = LVConnectQC008()
+  print(lVConnectQC008.command("ScrPrt", f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}LVConnectQC008\\temp\\lvtest.png"))
   print(lVConnectQC008.get_rates())
 
 if __name__ == '__main__':
