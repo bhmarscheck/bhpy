@@ -3,14 +3,22 @@ log = logging.getLogger(__name__)
 
 try:
   import appdirs
-  import pathlib
+  from pathlib import Path
   import json
 except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
+  raise
 
+class Pms800Conf():
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/Pms800Conf.json"
+  pass
+
+class SpcQcX08Conf():
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX08Conf.json"
+  pass
 class SpcQcX04Conf():
-  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='SPC-QC-104 GUI')}/SpcQc104Conf.json"
+  default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX04Conf.json"
 
   POSITIVE_EDGE = "͟  |͞   (rising)"
   NEGATIVE_EDGE = "͞  |͟   (falling)"
@@ -41,7 +49,7 @@ class SpcQcX04Conf():
       confPath = self.default_path
     confDict = self.__dict__
     confDict.pop('default_path', None)
-    pathlib.Path(confPath).parent.mkdir(parents=True, exist_ok=True)
+    Path(confPath).parent.mkdir(parents=True, exist_ok=True)
     with open(confPath, 'w', encoding='utf8') as f:
       json.dump(confDict, f, indent = 2, sort_keys = True, default = str, ensure_ascii=False)
 

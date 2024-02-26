@@ -2,19 +2,19 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-  from ctypes import byref, c_int16, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8,\
-                     c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64,\
-                     Union, LittleEndianStructure, c_char, c_int32
+  from ctypes import byref, c_int16, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8, c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union, LittleEndianStructure, c_char, c_int32
+  from pathlib import Path
   import argparse
   import numpy as np
   import numpy.typing as npt
-  import pathlib
   import re
+  import sys
   import threading
   import winreg
 except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
+  raise
 
 class ModuleInit(Structure):
   _fields_ = [("deviceNr", c_uint8),
@@ -40,12 +40,11 @@ class __TdcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
-  def __init__(self, defaultDllName, dllPath, dllIsDebugVersion):
+  def __init__(self, defaultDllName: str, dllPath: Path | str | None, dllIsDebugVersion: bool):
     if dllPath is None:
-      spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
-      dllPath = pathlib.Path(spcmPath).parent / f"DLL/{defaultDllName}.dll"
+      dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/{defaultDllName}.dll")
     else:
-      dllPath = pathlib.Path(dllPath)
+      dllPath = Path(dllPath)
     
     try:
       self.__dll = CDLL(str(dllPath.absolute()))
@@ -156,16 +155,16 @@ class __TdcDllWrapper:
       self.__write_setting.argtypes = [c_uint16, c_uint32]
       self.__write_setting.restype = c_uint32
 
-class SpcQcX04Wrapper(__TdcDllWrapper):
-  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+class SpcQcX04(__TdcDllWrapper):
+  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
     super().__init__("spc_qc_X04", dllPath, dllIsDebugVersion)
 
-class SpcQcX08Wrapper(__TdcDllWrapper):
-  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+class SpcQcX08(__TdcDllWrapper):
+  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
     super().__init__("spc_qc_X08", dllPath, dllIsDebugVersion)
 
-class PMSWrapper(__TdcDllWrapper):
-  def __init__(self, dllPath = None, dllIsDebugVersion = False):
+class Pms800(__TdcDllWrapper):
+  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
     super().__init__("pms_800", dllPath, dllIsDebugVersion)
 
 class SpcQcDllWrapper:
@@ -175,9 +174,9 @@ class SpcQcDllWrapper:
   def __init__(self, dllPath = None):
     if dllPath is None:
       spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
-      dllPath = pathlib.Path(spcmPath).parent / "DLL/spc_qc_X04.dll"
+      dllPath = Path(spcmPath).parent / "DLL/spc_qc_X04.dll"
     else:
-      dllPath = pathlib.Path(dllPath)
+      dllPath = Path(dllPath)
     
     try:
       self.__dll = CDLL(str(dllPath.absolute()))
@@ -356,7 +355,7 @@ class SpcQcDllWrapper:
 
   def get_events_from_buffer_to_file(self, cardNumber, filePath, threadEvent: threading.Event, filterMTOs: bool=False):
     getEvents = self.__get_events_from_buffer if filterMTOs else self.__get_raw_events_from_buffer
-    pathlib.Path(filePath).parent.mkdir(parents=True, exist_ok=True)
+    Path(filePath).parent.mkdir(parents=True, exist_ok=True)
     with open(filePath, 'wb') as file:
       buffer_size = 8388607
       buffer = np.array([0]*int(buffer_size), dtype=np.uint32) # 1GiB
@@ -560,14 +559,13 @@ class SpcQcDllWrapper:
     return self.__write_setting(arg1, arg2)
 
 def main():
-  parser = argparse.ArgumentParser(prog="SPC-QC-104 DLL Wrapper", description="SPC-QC-104 dll wrapper that provides python bindings to use Becker&Hickls' SPC-QC-104 hardware through the dll")
+  import bhpy
+  parser = argparse.ArgumentParser(prog="SPC-QC-X04 DLL Wrapper", description="SPC-QC-X04 dll wrapper that provides python bindings to use Becker&Hickls' SPC-QC-X04 hardware through the dll")
   parser.add_argument('dll_path', nargs='?', default=None)
 
   args = parser.parse_args()
 
-  dll_path = pathlib.Path(args.dll_path)
-
-  spcQcDll = SpcQcDllWrapper(dll_path)
+  spcQcDll = SpcQcX04(args.dll_path)
   print(spcQcDll.versionStr)
   spcQcDll.init([0], emulateHardware=True)
   print(spcQcDll.serialNumber)

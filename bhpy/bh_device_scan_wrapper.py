@@ -4,9 +4,9 @@ log = logging.getLogger(__name__)
 try:
   from ctypes import c_int16, create_string_buffer, Structure, CDLL, c_char_p, c_uint8, c_void_p, c_char
   import argparse
-  import pathlib
+  from pathlib import Path
   import re
-  import winreg
+  import sys
 except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
@@ -20,16 +20,15 @@ class HardwareScanResult(Structure):
 class HardwareError(IOError):
   pass
 
-class BHDeviceScanWrapper:
+class BHDeviceScan:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
   def __init__(self, dllPath = None):
     if dllPath is None:
-      spcmPath = winreg.QueryValueEx(winreg.OpenKey(winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER), 'SOFTWARE\\BH\\SPCM'), "FilePath")[0]
-      dllPath = pathlib.Path(spcmPath).parent / "DLL/bh_device_scan.dll"
+      dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/bh_device_scan.dll")
     else:
-      dllPath = pathlib.Path(dllPath)
+      dllPath = Path(dllPath)
     
     try:
       self.__dll = CDLL(str(dllPath.absolute()))
@@ -81,7 +80,7 @@ def main():
 
   args = parser.parse_args()
 
-  bhScan = BHDeviceScanWrapper(args.dll_path)
+  bhScan = BHDeviceScan(args.dll_path)
   print(bhScan.bhScanHardware())
   input("press enter...")
 

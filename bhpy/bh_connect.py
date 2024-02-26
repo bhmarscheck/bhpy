@@ -1,18 +1,26 @@
-import socket
-from zeroconf import Zeroconf, ServiceStateChange
-from Crypto.Random import get_random_bytes
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Util.Padding import pad, unpad
-import threading
-from Crypto.PublicKey import RSA
-import appdirs
-import pathlib
-import socketserver
-from queue import Queue
-import re
-import time
-import asyncio
-from typing import Literal
+import logging
+log = logging.getLogger(__name__)
+
+try:
+  import socket
+  from zeroconf import Zeroconf, ServiceStateChange
+  from Crypto.Random import get_random_bytes
+  from Crypto.Cipher import AES, PKCS1_OAEP
+  from Crypto.Util.Padding import pad, unpad
+  import threading
+  from Crypto.PublicKey import RSA
+  import appdirs
+  from pathlib import Path
+  import socketserver
+  from queue import Queue
+  import re
+  import time
+  import asyncio
+  from typing import Literal
+except ModuleNotFoundError as err:
+  # Error handling
+  log.error(err)
+  raise
 
 requestHandlerQueue = Queue()
 
@@ -26,8 +34,8 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
   def handle(self):
     data = self.request.recv(1)
     filename = self.request.recv(int.from_bytes(data)).decode()
-    imageDir = f"{appdirs.user_data_dir(appauthor='BH',appname='SPCRemote')}/temp/{filename}"
-    pathlib.Path(imageDir).parent.mkdir(parents=True, exist_ok=True)
+    imageDir = f"{appdirs.user_data_dir(appauthor='BH',appname='SPCConnectPythonClient')}/temp/{filename}"
+    Path(imageDir).parent.mkdir(parents=True, exist_ok=True)
     with open(imageDir,'wb') as f:
       data = self.request.recv(4096)
       while data:
@@ -185,7 +193,7 @@ class BHConnect():
     self.publicKey = self.privateKey.public_key()
 
     appDataDir = appdirs.user_data_dir(appauthor='BH',appname='SPCConnectPythonClient')
-    pathlib.Path(appDataDir).mkdir(parents=True, exist_ok=True)
+    Path(appDataDir).mkdir(parents=True, exist_ok=True)
     with open(f"{appDataDir}/cli_private.pem", "wb") as f:
       f.write(self.privateKey.export_key())
     with open(f"{appDataDir}/send_cli_public.pem", "wb") as f:
