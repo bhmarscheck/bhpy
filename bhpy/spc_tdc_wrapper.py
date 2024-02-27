@@ -10,6 +10,7 @@ try:
   import re
   import sys
   import threading
+  from typing import Literal
   import winreg
 except ModuleNotFoundError as err:
   # Error handling
@@ -37,10 +38,16 @@ class HardwareError(IOError):
   pass
 
 class __TdcDllWrapper:
+  DEFAULT_NAMES = Literal["spc_qc_X04", "spc_qc_X08", "pms_800"]
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
-  def __init__(self, defaultDllName: str, dllPath: Path | str | None, dllIsDebugVersion: bool):
+  def __init__(self, defaultDllName: DEFAULT_NAMES, noOfChannels: int, noOfRateChannels: int | None = None, dllPath: Path | str | None = None):
+    self.noOfChannels = noOfChannels
+    if noOfRateChannels is None:
+      self.noOfRateChannels = noOfChannels
+    else:
+      self.noOfRateChannels = noOfRateChannels
     if dllPath is None:
       dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/{defaultDllName}.dll")
     else:
@@ -66,6 +73,10 @@ class __TdcDllWrapper:
     if (major != 2):
       raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {major}.{minor}.{patch} Expected >= 2.0.0, < 3")
     
+    self.__get_dll_debug = self.__dll.get_dll_debug
+    self.__get_dll_debug.restype = c_uint8
+    self.dllIsDebugVersion = (self.__get_dll_debug() > 0)
+
     self.__abort_data_collection = self.__dll.abort_data_collection
 
     self.__deinit_data_collection = self.__dll.deinit_data_collection
@@ -112,7 +123,11 @@ class __TdcDllWrapper:
     self.__initialize_data_collection.argtypes = [POINTER(c_uint64)]
     self.__initialize_data_collection.restype = c_int16
 
-    if dllIsDebugVersion:
+    self.__initialize_data_collections = self.__dll.initialize_data_collections
+    self.__initialize_data_collections.argtypes = [POINTER(c_uint64)]
+    self.__initialize_data_collections.restype = c_int16
+
+    if self.dllIsDebugVersion:
       self.__read_setting = self.__dll.read_setting
       self.__read_setting.argtypes = [c_uint16]
       self.__read_setting.restype = c_uint32
@@ -150,22 +165,177 @@ class __TdcDllWrapper:
     self.__stop_measurement = self.__dll.stop_measurement
     self.__stop_measurement.restype = c_int16
 
-    if dllIsDebugVersion:
+    if self.dllIsDebugVersion:
       self.__write_setting = self.__dll.write_setting
       self.__write_setting.argtypes = [c_uint16, c_uint32]
       self.__write_setting.restype = c_uint32
 
+  def abort_data_collection(self):
+    self.__abort_data_collection()
+
+  def deinit_data_collection(self):
+    self.__deinit_data_collection()
+
+  def deinit_data_collections(self):
+    self.__deinit_data_collections()
+
+  def deinit(self):
+    return self.__deinit()
+
+  def get_card_focus(self):
+    return self.__get_card_focus()
+
+  def get_channel_enable(self, channel: int):
+    return self.__get_channel_enable(c_uint8(channel))
+
+  def get_channel_enables(self):
+    enableBits = self.__get_channel_enables()
+    enables = []
+    for i in range(self.noOfChannels):
+      enables.append((enableBits & (1 << i)) > 0)
+    return enables
+
+  def get_external_trigger_enable(self):
+    return self.__get_external_trigger_enable()
+
+  def get_firmware_version(self):
+    return self.__get_firmware_version()
+
+  def get_hardware_countdown_enable(self):
+    return self.__get_hardware_countdown_enable()
+
+  def get_hardware_countdown_time(self):
+    return self.__get_hardware_countdown_time()
+
+  def get_rate(self, channel):
+    arg = c_uint8(channel)
+    return self.__get_rate(arg)
+
+  def get_rates(self) -> list[int]:
+    rates = (c_uint32 * self.noOfRateChannels)()
+    self.get_rates(byref(rates))
+    return rates[:]
+
+  def init(self, moduleList: list[int], logPath: str = None, emulateHardware: bool = False) -> int:
+    arg1 = (ModuleInit * len(moduleList))()
+    self.serialNumber = []
+
+    self.logPath = logPath
+
+    for i in range(len(moduleList)):
+      arg1[i].initialized = False
+      arg1[i].serialNrStr = bytes(0)
+      arg1[i].deviceNr = c_uint8(moduleList[i])
+
+    numberOfHwModules = len(moduleList) if emulateHardware == False else 0
+
+    lpArg = None if logPath is None else logPath.encode('utf-8')
+    ret = self.__init(arg1, c_uint8(numberOfHwModules), lpArg)
+    # Structure objects (arg1) are automatically passed byref
+
+    for module in arg1:
+      self.serialNumber.append(str(module.serialNrStr)[2:-1])
+    return ret
+
+  def initialize_data_collection(self, eventSize):
+    arg = c_uint64(eventSize)
+    self.__initialize_data_collection(byref(arg))
+    return arg.value
+
+  def initialize_data_collections(self, eventSize):
+    arg = c_uint64(eventSize)
+    self.__initialize_data_collections(byref(arg))
+    return arg.value
+
+  def read_setting(self, settingId):
+    if self.dllIsDebugVersion:
+      arg1 = c_uint16(settingId)
+      return self.__read_setting(arg1)
+    else:
+      raise RuntimeWarning("read_setting() method is only available in debug version of the dll")
+
+  def reset_registers(self):
+    self.__reset_registers()
+    return
+
+  def run_data_collection(self, acquisitionTimeMs, timeoutMs):
+    arg1 = c_uint32(acquisitionTimeMs)
+    arg2 = c_uint32(timeoutMs)
+    return self.__run_data_collection(arg1, arg2)
+
+  def set_card_focus(self, focusOnCardNr):
+    arg = c_uint8(focusOnCardNr)
+    return self.__set_card_focus(arg)
+
+  def set_channel_enable(self, channel, state) -> int:
+    arg1 = c_uint8(channel)
+    arg2 = c_bool(state)
+    return self.__set_channel_enable(arg1, arg2)
+
+  def set_channel_enables(self, states: list[bool]) -> int:
+    enablesArg = 0
+    for i, enable in zip(range(8), states):
+      if enable:
+        enablesArg |= (1 << i)
+    return self.__set_channel_enables(c_uint8(enablesArg))
+
+  def set_external_trigger_enable(self, state):
+    arg1 = c_bool(state)
+    return self.__set_external_trigger_enable(arg1)
+
+  def set_hardware_countdown_enable(self, state):
+    arg = c_bool(state)
+    return self.__set_hardware_countdown_enable(arg)
+
+  def set_hardware_countdown_time(self, nsTime):
+    arg = c_double(nsTime)
+    ret = self.__set_hardware_countdown_time(arg)
+    if ret < 0:
+      raise HardwareError(f"DLL call set_hardware_countdown_time() returned with {int(ret)}, more details: {self.logPath}")
+    return ret
+
+  def stop_measurement(self):
+    return self.__stop_measurement()
+
+  def write_setting(self, settingId, value):
+    if self.dllIsDebugVersion:
+      arg1 = c_uint16(settingId)
+      arg2 = c_uint32(value)
+      return self.__write_setting(arg1, arg2)
+    else:
+      raise RuntimeWarning("write_setting() method is only available in debug version of the dll")
+
+class __8ChannelDllWrapper(__TdcDllWrapper):
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+
+    self.__get_channel_inputmode = self.__dll.get_channel_inputmode
+    self.__get_channel_inputmode.argtypes = [c_uint8]
+    self.__get_channel_inputmode.restype = c_int8
+
+
+
+
+
+
+
+
+
+
+
+
+
 class SpcQcX04(__TdcDllWrapper):
-  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
-    super().__init__("spc_qc_X04", dllPath, dllIsDebugVersion)
+  def __init__(self, dllPath: Path | str | None = None):
+    super().__init__(defaultDllName = "spc_qc_X04", noOfChannels = 4, dllPath = dllPath)
 
-class SpcQcX08(__TdcDllWrapper):
-  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
-    super().__init__("spc_qc_X08", dllPath, dllIsDebugVersion)
+class SpcQcX08(__8ChannelDllWrapper):
+  def __init__(self, dllPath: Path | str | None = None):
+    super().__init__(defaultDllName = "spc_qc_X08", noOfChannels = 8, dllPath = dllPath)
 
-class Pms800(__TdcDllWrapper):
-  def __init__(self, dllPath: Path | str | None = None, dllIsDebugVersion: bool = False):
-    super().__init__("pms_800", dllPath, dllIsDebugVersion)
+class Pms800(__8ChannelDllWrapper):
+  def __init__(self, dllPath: Path | str | None = None):
+    super().__init__(defaultDllName = "pms_800", noOfChannels = 8, noOfRateChannels = 5, dllPath = dllPath)
 
 class SpcQcDllWrapper:
   versionStr = ""
@@ -565,10 +735,11 @@ def main():
 
   args = parser.parse_args()
 
-  spcQcDll = SpcQcX04(args.dll_path)
-  print(spcQcDll.versionStr)
-  spcQcDll.init([0], emulateHardware=True)
-  print(spcQcDll.serialNumber)
+  spcQcX04 = SpcQcX04(args.dll_path)
+  print(spcQcX04.versionStr)
+  spcQcX04.init([0], emulateHardware=True)
+  print(spcQcX04.serialNumber)
+  print(f"Dll debuggable: {spcQcX04.dllIsDebugVersion}")
   input("press enter...")
 
 if __name__ == '__main__':
