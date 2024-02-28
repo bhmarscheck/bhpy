@@ -2,7 +2,7 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-  from ctypes import byref, c_int16, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8, c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union, LittleEndianStructure, c_char, c_int32
+  from ctypes import byref, cast, c_int16, create_string_buffer, Structure, CDLL, POINTER, c_char_p, c_uint8, c_uint16, c_uint32, c_bool, c_double, c_int8, c_float, c_void_p, c_uint64, c_int64, Union, LittleEndianStructure, c_char, c_int32
   from pathlib import Path
   import argparse
   import numpy as np
@@ -11,6 +11,7 @@ try:
   import sys
   import threading
   from typing import Literal
+  import typing
   import winreg
 except ModuleNotFoundError as err:
   # Error handling
@@ -42,12 +43,19 @@ class __TdcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
-  def __init__(self, defaultDllName: DEFAULT_NAMES, noOfChannels: int, noOfRateChannels: int | None = None, dllPath: Path | str | None = None):
+  def __init__(self, defaultDllName: DEFAULT_NAMES, noOfChannels: int, noOfInputmodes: int | None = None, noOfRates: int | None = None, dllPath: Path | str | None = None):
     self.noOfChannels = noOfChannels
-    if noOfRateChannels is None:
-      self.noOfRateChannels = noOfChannels
+
+    if noOfInputmodes is None:
+      self.noOfInputmodes = noOfChannels
     else:
-      self.noOfRateChannels = noOfRateChannels
+      self.noOfInputmodes = noOfInputmodes
+
+    if noOfRates is None:
+      self.noOfRates = noOfChannels
+    else:
+      self.noOfRates = noOfRates
+
     if dllPath is None:
       dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/{defaultDllName}.dll")
     else:
@@ -212,8 +220,8 @@ class __TdcDllWrapper:
     return self.__get_rate(arg)
 
   def get_rates(self) -> list[int]:
-    rates = (c_uint32 * self.noOfRateChannels)()
-    self.get_rates(byref(rates))
+    rates = (c_uint32 * self.noOfRates)()
+    self.__get_rates(cast(rates, POINTER(c_int32)))
     return rates[:]
 
   def init(self, moduleList: list[int], logPath: str = None, emulateHardware: bool = False) -> int:
@@ -308,10 +316,52 @@ class __TdcDllWrapper:
 class __8ChannelDllWrapper(__TdcDllWrapper):
   def __init__(self, **kwargs):
     super().__init__(**kwargs)
+    self.__dll = self._TdcDllWrapper__dll
 
     self.__get_channel_inputmode = self.__dll.get_channel_inputmode
     self.__get_channel_inputmode.argtypes = [c_uint8]
     self.__get_channel_inputmode.restype = c_int8
+
+    self.__get_channel_inputmodes = self.__dll.get_channel_inputmodes
+    self.__get_channel_inputmodes.argtypes = [POINTER(c_uint8)]
+
+    self.__get_channel_polarities = self.__dll.get_channel_polarities
+    self.__get_channel_polarities.restype = c_uint8
+
+    self.__get_channel_polarity = self.__dll.get_channel_polarity
+    self.__get_channel_polarity.argtypes = [c_uint8]
+    self.__get_channel_polarity.restype = c_int8
+
+    self.__get_input_threshold = self.__dll.get_input_threshold
+    self.__get_input_threshold.argtypes = [c_uint8]
+    self.__get_input_threshold.restype = c_float
+
+    self.__get_input_thresholds = self.__dll.get_input_thresholds
+    self.__get_input_thresholds.argtypes = [c_uint8]
+    self.__get_input_thresholds.restype = c_int16
+
+    self.__get_max_trigger_count = self.__dll.get_max_trigger_count
+    self.__get_max_trigger_count.restype = c_uint32
+
+    self.__get_pulsgenerator_enable = self.__dll.get_pulsgenerator_enable
+    self.__get_pulsgenerator_enable.restype = c_uint8
+
+    self.__get_trigger_countdown_enable = self.__dll.get_trigger_countdown_enable
+    self.__get_trigger_countdown_enable.restype = c_uint8
+
+    self.__set_channel_inputmode = self.__dll.set_channel_inputmode
+    self.__set_channel_inputmode.argtypes = [c_uint8, c_uint8]
+    self.__set_channel_inputmode.restype = c_int16
+
+    self.__set_channel_inputmodes = self.__dll.set_channel_inputmodes
+    self.__set_channel_inputmodes.argtypes = [POINTER(c_uint8)]
+    self.__set_channel_inputmodes.restype = c_int16
+
+
+
+
+
+
 
 
 
@@ -330,12 +380,68 @@ class SpcQcX04(__TdcDllWrapper):
     super().__init__(defaultDllName = "spc_qc_X04", noOfChannels = 4, dllPath = dllPath)
 
 class SpcQcX08(__8ChannelDllWrapper):
+  INPUT_MODES = Literal["Input", "Calibration Input", 0, 2]
+  input_modes = {"Input": 0, "Calibration Input": 2}
+  modes_input = {0: "Input", 2: "Calibration Input"}
   def __init__(self, dllPath: Path | str | None = None):
     super().__init__(defaultDllName = "spc_qc_X08", noOfChannels = 8, dllPath = dllPath)
+  
+  @property
+  def inputmodes(self):
+    inputmodes = (c_uint8 * self.noOfChannels)()
+    self._8ChannelDllWrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
+    return [self.modes_input[x] for x in inputmodes]
+
+  @inputmodes.setter
+  def inputmodes(self, values: list[INPUT_MODES] | list[int] | tuple[int, INPUT_MODES | int]):
+    print(type(values))
+    if type(values) == list:
+      values = [self.input_modes[x] if (str == type(x) and x in typing.get_args(self.INPUT_MODES)) else x for x in values][:self.noOfInputmodes]
+      badArgs = [x for x in values if (x not in typing.get_args(self.INPUT_MODES))]
+      if badArgs:
+        raise ValueError(f"{list(dict.fromkeys(badArgs))} not part of {self.INPUT_MODES}")
+      valuesArg = (c_uint8 * self.noOfChannels)(*values)
+      self._8ChannelDllWrapper__set_channel_inputmodes(valuesArg)
+    else:
+      channel, value = values
+      if value in typing.get_args(self.INPUT_MODES):
+        if str == type(value):
+          value = self.input_modes[value]
+      else:
+        raise ValueError(f"{[value]} not part of {self.INPUT_MODES}")
+      self._8ChannelDllWrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
 
 class Pms800(__8ChannelDllWrapper):
+  INPUT_MODES = Literal["Input", "Gated Input", "Calibration Input", 0, 1, 2]
+  input_modes = {"Input": 0, "Gated Input": 1, "Calibration Input": 2}
+  modes_input = {0: "Input", 1: "Gated Input", 2: "Calibration Input"}
   def __init__(self, dllPath: Path | str | None = None):
-    super().__init__(defaultDllName = "pms_800", noOfChannels = 8, noOfRateChannels = 5, dllPath = dllPath)
+    super().__init__(defaultDllName = "pms_800", noOfChannels = 8, noOfInputmodes = 4, noOfRates = 5, dllPath = dllPath)
+
+  @property
+  def inputmodes(self):
+    inputmodes = (c_uint8 * self.noOfInputmodes)()
+    self._8ChannelDllWrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
+    return [self.modes_input[x] for x in inputmodes]
+
+  @inputmodes.setter
+  def inputmodes(self, values: list[INPUT_MODES] | list[int] | tuple[int, INPUT_MODES | int]):
+    print(type(values))
+    if type(values) == list:
+      values = [self.input_modes[x] if (str == type(x) and x in typing.get_args(self.INPUT_MODES)) else x for x in values][:self.noOfInputmodes]
+      badArgs = [x for x in values if (x not in typing.get_args(self.INPUT_MODES))]
+      if badArgs:
+        raise ValueError(f"{list(dict.fromkeys(badArgs))} not part of {self.INPUT_MODES}")
+      valuesArg = (c_uint8 * self.noOfInputmodes)(*values)
+      self._8ChannelDllWrapper__set_channel_inputmodes(valuesArg)
+    else:
+      channel, value = values
+      if value in typing.get_args(self.INPUT_MODES):
+        if str == type(value):
+          value = self.input_modes[value]
+      else:
+        raise ValueError(f"{[value]} not part of {self.INPUT_MODES}")
+      self._8ChannelDllWrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
 
 class SpcQcDllWrapper:
   versionStr = ""
@@ -735,12 +841,28 @@ def main():
 
   args = parser.parse_args()
 
-  spcQcX04 = SpcQcX04(args.dll_path)
-  print(spcQcX04.versionStr)
-  spcQcX04.init([0], emulateHardware=True)
-  print(spcQcX04.serialNumber)
-  print(f"Dll debuggable: {spcQcX04.dllIsDebugVersion}")
-  input("press enter...")
+  spcQcX04s = [SpcQcX08(args.dll_path),Pms800(args.dll_path),SpcQcX04(args.dll_path)]
+  
+  for spcQcX04 in spcQcX04s:
+    print(spcQcX04.versionStr)
+    spcQcX04.init([0], emulateHardware=True)
+    print(spcQcX04.serialNumber)
+    print(f"Dll debuggable: {spcQcX04.dllIsDebugVersion}\n")
+    if hasattr(spcQcX04, "inputmodes"):
+      print(spcQcX04.inputmodes)
+      spcQcX04.inputmodes = [0,2,2,0,2,2,2,2]
+      print(spcQcX04.inputmodes)
+      spcQcX04.inputmodes = ["Input","Input","Input","Calibration Input","Calibration Input","Calibration Input"]
+      print(spcQcX04.inputmodes)
+      spcQcX04.inputmodes = ["Input","Input","Calibration Input",2,2,2,"Input",2]
+      print(spcQcX04.inputmodes)
+      spcQcX04.inputmodes = (0, 2)
+      print(spcQcX04.inputmodes)
+      spcQcX04.inputmodes = (0, "Input")
+      print(spcQcX04.inputmodes)
+    print("\n")
+
+  input("press enter...\n\n")
 
 if __name__ == '__main__':
   main()
