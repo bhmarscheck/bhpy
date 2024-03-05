@@ -195,7 +195,7 @@ class __TdcDllWrapper:
       output = 0
       for bit in reversed(values): # so first in list end up in leas significant bit
         output = output * 2 + 1 if bit else output * 2
-      self.__get_channel_enables(c_uint8(output))
+      self.__set_channel_enables(c_uint8(output)) #TODO check all setters to not use get functions
     else:
       channel, value = values
       self.__set_channel_enable(c_uint8(channel), c_bool(value))
@@ -395,9 +395,9 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
   def polarities(self):
     polarities = self.__get_channel_polarities()
     return reversed([self.__polarities[digit] for digit in bin(polarities)[2:]]) # so first in list end up in leas significant bit
-
+  #TODO remove empty lines between property and setter
   @polarities.setter
-  def polarities(self, values: list[POLARITIES] | list[int] | tuple[int, POLARITIES | int]):
+  def polarities(self, values: list[POLARITIES | int] | tuple[int, POLARITIES | int]):
     if type(values) is list:
       values = [self.__polaritiesToInt[x] if (type(x) is str and x in typing.get_args(self.POLARITIES)) else x for x in values]
       badArgs = [x for x in values if (x not in typing.get_args(self.POLARITIES))]
@@ -479,6 +479,9 @@ class Markers(typing.TypedDict):
   marker3: bool
 
 class SpcQcX04(__TdcDllWrapper):
+  MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
+  __markerToInt = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
+
   def __init__(self, dllPath: Path | str | None = None):
     super().__init__(defaultDllName = "spc_qc_X04", noOfChannels = 4, dllPath = dllPath)
     self.__dll: CDLL = self._TdcDllWrapper__dll
@@ -684,15 +687,25 @@ class SpcQcX04(__TdcDllWrapper):
     enables = self.__get_marker_enables()
     return Markers(pixel = (enables & 0x1) > 0, line = (enables & 0x2) > 0, frame = (enables & 0x4) > 0, marker3 = (enables & 0x8) > 0)
   @markerEnables.setter
-  def markerEnables(self, enables: Markers | list[bool] | int):
-    if type(enables) is Markers:
-      pass
-    elif type(enables) is list:
-      pass
+  def markerEnables(self, enables: Markers | list[bool, int] | int | tuple[MARKER, bool | int]):
+    if type(enables) is tuple:
+      marker, enable = enables
+      if type(marker) is str:
+        marker = self.__markerToInt[marker]
+      self.__set_marker_enable(c_uint8(marker), c_bool(enable))
+      return
     elif type(enables) is int:
-      pass
-    else:
+      enablesArg = c_uint8(enables)
+    elif type(enables) is Markers:
+      enablesArg = [enables["pixel"], enables["line"], enables["frame"], enables["marker3"]]
+    elif type(enables) is not list:
       raise ValueError(enables)
+    
+    if type(enablesArg) is list:
+      enablesArg = 0
+      for bit in reversed(enables): # so first in list end up in leas significant bit
+        enablesArg = enablesArg * 2 + 1 if bit else enablesArg * 2
+    self.__set_marker_enables(enablesArg)
 
   @property
   def markerPolarities(self):
