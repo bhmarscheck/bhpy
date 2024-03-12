@@ -9,10 +9,8 @@ try:
   import numpy.typing as npt
   import re
   import sys
-  import threading
   from typing import Literal
   import typing
-  import winreg
 except ModuleNotFoundError as err:
   # Error handling
   log.error(err)
@@ -23,27 +21,30 @@ class ModuleInit(Structure):
               ("initialized", c_bool),
               ("serialNrStr", c_char * 12)]
 
-class ModuleStatusFlags(LittleEndianStructure):
-  _fields_ = [("fifoFull", c_uint8, 1),
-              ("fifoEmpty", c_uint8, 1),
-              ("waitTrig", c_uint8, 1),
-              ("measure", c_uint8, 1),
-              ("armed", c_uint8, 1),
-              ("colT", c_uint8, 1)]
-
-class ModuleStatus(Union):
-    _fields_ = [("b", ModuleStatusFlags),
-                ("asByte", c_uint8)]
-
 class HardwareError(IOError): #TODO this is meh
   pass
 
-class __TdcDllWrapper:
+class TdcLiterals:
   DEFAULT_NAMES = Literal["spc_qc_X04", "spc_qc_X08", "pms_800"]
+
+  MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
+  __markerToInt = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
+
+  POLARITIES = Literal["Falling", "Rising"]
+  __polaritiesToInt = {"Falling": 0, "Rising": 1}
+  __polarities = {"0": "Falling", "1": "Rising"}
+
+class Markers(typing.TypedDict):
+  pixel: bool | TdcLiterals.POLARITIES
+  line: bool | TdcLiterals.POLARITIES
+  frame: bool | TdcLiterals.POLARITIES
+  marker3: bool | TdcLiterals.POLARITIES
+
+class __TdcDllWrapper:
   versionStr = ""
   versionStrBuf = create_string_buffer(128)
 
-  def __init__(self, defaultDllName: DEFAULT_NAMES, noOfChannels: int, noOfInputmodes: int | None = None, noOfRates: int | None = None, dllPath: Path | str | None = None):
+  def __init__(self, defaultDllName: TdcLiterals.DEFAULT_NAMES, noOfChannels: int, noOfInputmodes: int | None = None, noOfRates: int | None = None, dllPath: Path | str | None = None):
     self.noOfChannels = noOfChannels
 
     if noOfInputmodes is None:
@@ -188,7 +189,7 @@ class __TdcDllWrapper:
   @property
   def channelEnables(self) -> list[bool]:
     enables = self.__get_channel_enables()
-    return reversed([True if digit > 0 else False for digit in bin(enables)[2:]]) # so first in list end up in leas significant bit
+    return reversed([True if digit > 0 else False for digit in format(enables, '08b')]) # so first in list end up in leas significant bit
   @channelEnables.setter
   def channelEnables(self, values: list[bool] | tuple[int, bool]):
     if type(values) is list:
@@ -304,10 +305,6 @@ class __TdcDllWrapper:
       raise RuntimeWarning("_write_setting() method is only available in debug version of the dll")
 
 class __8ChannelDllWrapper(__TdcDllWrapper):
-  POLARITIES = Literal["Falling", "Rising"]
-  __polaritiesToInt = {"Falling": 0, "Rising": 1}
-  __polarities = {"0": "Falling", "1": "Rising"}
-
   def __init__(self, **kwargs):
     super().__init__(**kwargs)
     self.__dll: CDLL = self._TdcDllWrapper__dll
@@ -394,15 +391,15 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
   @property
   def polarities(self):
     polarities = self.__get_channel_polarities()
-    return reversed([self.__polarities[digit] for digit in bin(polarities)[2:]]) # so first in list end up in leas significant bit
+    return reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, '08b')]) # so first in list end up in leas significant bit
   #TODO remove empty lines between property and setter
   @polarities.setter
-  def polarities(self, values: list[POLARITIES | int] | tuple[int, POLARITIES | int]):
+  def polarities(self, values: list[TdcLiterals.POLARITIES | int] | tuple[int, TdcLiterals.POLARITIES | int]):
     if type(values) is list:
-      values = [self.__polaritiesToInt[x] if (type(x) is str and x in typing.get_args(self.POLARITIES)) else x for x in values]
-      badArgs = [x for x in values if (x not in typing.get_args(self.POLARITIES))]
+      values = [TdcLiterals.__polaritiesToInt[x] if (type(x) is str and x in typing.get_args(TdcLiterals.POLARITIES)) else x for x in values]
+      badArgs = [x for x in values if (x not in typing.get_args(TdcLiterals.POLARITIES))]
       if badArgs:
-        raise ValueError(f"{list(dict.fromkeys(badArgs))} not part of {self.POLARITIES}")
+        raise ValueError(f"{list(dict.fromkeys(badArgs))} not part of {TdcLiterals.POLARITIES}")
       output = 0
       for bit in reversed(values): # so first in list end up in leas significant bit
         output = output * 2 + bit
@@ -410,11 +407,11 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
       self.__set_channel_polarities(valuesArg)
     else:
       channel, value = values
-      if value in typing.get_args(self.POLARITIES):
+      if value in typing.get_args(TdcLiterals.POLARITIES):
         if str == type(value):
-          value = self.__polaritiesToInt[value]
+          value = TdcLiterals.__polaritiesToInt[value]
       else:
-        raise ValueError(f"{[value]} not part of {self.POLARITIES}")
+        raise ValueError(f"{[value]} not part of {TdcLiterals.POLARITIES}")
       self.__set_channel_polarity(c_uint8(channel), c_uint8(value))
   
   @property
@@ -472,19 +469,39 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
     else:
       raise RuntimeWarning("_write_serial_number() method is only available in debug version of the dll")
 
-class Markers(typing.TypedDict):
-  pixel: bool
-  line: bool
-  frame: bool
-  marker3: bool
+class __EventStream32Bit(__TdcDllWrapper):
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    self.fileName = kwargs["defaultDllName"]
+    self.__dll: CDLL = self._TdcDllWrapper__dll
 
-class SpcQcX04(__TdcDllWrapper):
-  MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
-  __markerToInt = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
+    self.__get_events_from_buffer = self.__dll.get_events_from_buffer
+    self.__get_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
+    self.__get_events_from_buffer.restype = c_int64
 
+    self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
+    self.__get_raw_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
+    self.__get_raw_events_from_buffer.restype = c_int64
+
+    self.__get_raw_events_from_buffer_to_file = self.__dll.get_raw_events_from_buffer_to_file
+    self.__get_raw_events_from_buffer_to_file.argtypes = [c_uint32, c_uint32, c_uint8, c_uint32, c_uint32, c_char_p]
+    self.__get_raw_events_from_buffer_to_file.restype = c_int64
+
+  def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], maxEvents, cardNumber, filterMTOs: bool=False):
+    getEvents = self.__get_events_from_buffer if filterMTOs else self.__get_raw_events_from_buffer
+    events = getEvents(buffer.ctypes.data, c_uint32(maxEvents), c_uint8(cardNumber))
+    return buffer, events
+
+  def get_events_from_buffer_to_file(self, cardNumber: int, dirPath: str, idx: int, minEvents: int, maxEvents: int | None = None, timeoutMs: int = 10_000) -> tuple[str, int]:
+    if maxEvents is None:
+      maxEvents = minEvents
+    events = self.__get_raw_events_from_buffer_to_file(c_uint32(minEvents), c_uint32(maxEvents), c_uint8(cardNumber), c_uint32(idx), c_uint32(timeoutMs), c_char_p(dirPath.encode()))
+    return f"{dirPath}/{self.fileName}_record_{idx}.data", events
+
+class SpcQcX04(__EventStream32Bit):
   def __init__(self, dllPath: Path | str | None = None):
     super().__init__(defaultDllName = "spc_qc_X04", noOfChannels = 4, dllPath = dllPath)
-    self.__dll: CDLL = self._TdcDllWrapper__dll
+    self.__dll: CDLL = self._EventStream32Bit__dll
 
     self.__get_CFD_threshold = self.__dll.get_CFD_threshold
     self.__get_CFD_threshold.argtypes = [c_uint8]
@@ -512,13 +529,9 @@ class SpcQcX04(__TdcDllWrapper):
     self.__get_channel_divider = self.__dll.get_channel_divider
     self.__get_channel_divider.argtypes = [c_uint8]
     self.__get_channel_divider.restype = c_int8
-    
+
     self.__get_dithering_enable = self.__dll.get_dithering_enable
     self.__get_dithering_enable.restype = c_uint8
-
-    self.__get_events_from_buffer = self.__dll.get_events_from_buffer
-    self.__get_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
-    self.__get_events_from_buffer.restype = c_int64
 
     self.__get_marker_enable = self.__dll.get_marker_enable
     self.__get_marker_enable.argtypes = [c_uint8]
@@ -539,14 +552,6 @@ class SpcQcX04(__TdcDllWrapper):
 
     self.__get_module_status = self.__dll.get_module_status
     self.__get_module_status.restype = c_uint8
-
-    self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
-    self.__get_raw_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
-    self.__get_raw_events_from_buffer.restype = c_int64
-
-    self.__get_raw_events_from_buffer_to_file = self.__dll.get_raw_events_from_buffer_to_file
-    self.__get_raw_events_from_buffer_to_file.argtypes = [c_uint32, c_uint32, c_uint8, c_uint32, c_uint32, c_char_p]
-    self.__get_raw_events_from_buffer_to_file.restype = c_int64
 
     self.__get_routing_compensation = self.__dll.get_routing_compensation
     self.__get_routing_compensation.restype = c_int16
@@ -687,70 +692,155 @@ class SpcQcX04(__TdcDllWrapper):
     enables = self.__get_marker_enables()
     return Markers(pixel = (enables & 0x1) > 0, line = (enables & 0x2) > 0, frame = (enables & 0x4) > 0, marker3 = (enables & 0x8) > 0)
   @markerEnables.setter
-  def markerEnables(self, enables: Markers | list[bool, int] | int | tuple[MARKER, bool | int]):
+  def markerEnables(self, enables: Markers | list[bool, int] | int | tuple[TdcLiterals.MARKER, bool | int]):
     if type(enables) is tuple:
       marker, enable = enables
       if type(marker) is str:
-        marker = self.__markerToInt[marker]
+        marker = TdcLiterals.__markerToInt[marker]
       self.__set_marker_enable(c_uint8(marker), c_bool(enable))
       return
     elif type(enables) is int:
-      enablesArg = c_uint8(enables)
+      enablesArg = enables
     elif type(enables) is Markers:
-      enablesArg = [enables["pixel"], enables["line"], enables["frame"], enables["marker3"]]
+      enables = [enables["pixel"], enables["line"], enables["frame"], enables["marker3"]]
     elif type(enables) is not list:
-      raise ValueError(enables)
+      raise ValueError()
     
-    if type(enablesArg) is list:
+    if type(enables) is list:
       enablesArg = 0
       for bit in reversed(enables): # so first in list end up in leas significant bit
         enablesArg = enablesArg * 2 + 1 if bit else enablesArg * 2
-    self.__set_marker_enables(enablesArg)
+    self.__set_marker_enables(c_uint8(enablesArg))
 
   @property
   def markerPolarities(self):
-    pass
+    polarities = self.__get_marker_polarities()
+    return reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, '04b')])
   @markerPolarities.setter
-  def markerPolarities(self,):
-    pass
+  def markerPolarities(self, polarities: Markers | list[int] | int | tuple[TdcLiterals.MARKER, int]):
+    if type(polarities) is tuple:
+      marker, polarity = polarities
+      if type(marker) is str:
+        marker = TdcLiterals.__markerToInt[marker]
+      self.__set_marker_polarity(c_uint8(marker), c_bool(polarity))
+      return
+    elif type(polarities) is int:
+      polaritiesArg = polarities
+    elif type(polarities) is Markers:
+      polarities = [polarities["pixel"], polarities["line"], polarities["frame"], polarities["marker3"]]
+    elif type(polarities) is not list:
+      raise ValueError()
+    
+    if type(polarities) is list:
+      polaritiesArg = 0
+      for bit in reversed(polarities): # so first in list end up in leas significant bit
+        polaritiesArg = polaritiesArg * 2 + 1 if bit else polaritiesArg * 2
+    self.__set_marker_enables(c_uint8(polaritiesArg))
 
   @property
   def markerStatus(self):
-    pass
+    res = self.__get_marker_status()
+    status = []
+    if res & 0x1:
+      status.append("pixel")
+    if res & 0x2:
+      status.append("line")
+    if res & 0x4:
+      status.append("frame")
+    if res & 0x8:
+      status.append("marker3")
+    return status
 
   @property
   def moduleStatus(self):
-    pass
+    res = self.__get_module_status()
+    status = []
+    if res & 0x1:
+      status.append("HFF") #Hardware FIFO is full
+    if res & 0x2:
+      status.append("HFE") #Hardware FIFO is empty
+    if res & 0x4:
+      status.append("WFT") #Waiting for trigger
+    if res & 0x8:
+      status.append("MEA") #Module is measuring
+    if res & 0x10:
+      status.append("ARM") #Module is armed
+    if res & 0x20:
+      status.append("HCE") #Hardware collection timer is expired
+  
+  @property
+  def hardwareFifoFull(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x1) else False
+  
+  @property
+  def hardwareFifoEmpty(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x2) else False
+  
+  @property
+  def waitingForTrigger(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x4) else False
+  
+  @property
+  def moduleIsMeasuring(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x8) else False
+  
+  @property
+  def moduleIsArmed(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x10) else False
+  
+  @property
+  def hardwareCollectionTimerExpired(self):
+    res = self.__get_module_status()
+    return True if (self.__get_module_status() & 0x20) else False
 
   @property
   def routingCompensation(self):
-    pass
+    return self.__get_routing_compensation()
   @routingCompensation.setter
-  def routingCompensation(self,):
-    pass
+  def routingCompensation(self, compensationNs: int):
+    self.__set_routing_compensation(c_int8(compensationNs))
 
   @property
   def routingEnables(self):
-    pass
+    enables = self.__get_routing_enables()
+    return reversed([True if bit else False for bit in format(enables, '04b')])
   @routingEnables.setter
-  def routingEnables(self,):
-    pass
+  def routingEnables(self, enables: list[bool, int] | int | tuple[int, bool | int]):
+    if type(enables) is tuple:
+      channel, enable = enables
+      self.__set_routing_enable(c_uint8(channel), c_bool(enable))
+      return
+    elif type(enables) is int:
+      enablesArg = enables
+    elif type(enables) is not list:
+      raise ValueError()
+    
+    if type(enables) is list:
+      enablesArg = 0
+      for bit in reversed(enables): # so first in list end up in leas significant bit
+        enablesArg = enablesArg * 2 + 1 if bit else enablesArg * 2
+    self.__set_routing_enables(c_uint8(enablesArg))
 
   @property
-  def triggerPolarity(self):
-    pass
+  def triggerPolarity(self) -> TdcLiterals.POLARITIES:
+    return "Rising" if self.__get_trigger_polarity() else "Falling"
   @triggerPolarity.setter
-  def triggerPolarity(self,):
-    pass
+  def triggerPolarity(self, polarity: TdcLiterals.POLARITIES | bool | int):
+    if type(polarity) is str:
+      polarity = TdcLiterals.__polaritiesToInt[polarity]
+    self.__set_trigger_polarity(c_bool(polarity))
 
-  def get_events_from_buffer(self,):
-    pass
-
-  def get_events_from_buffer_to_file(self,):
-    pass
-
-  def set_measurement_configuration(self,):
-    pass
+  def set_measurement_configuration(self, operationMode, timeRange, frontClipping, resolution):
+    timeRangeArg = c_uint32(timeRange)
+    frontClippingArg = c_uint32(frontClipping)
+    resolutionArg = c_uint8(resolution)
+    ret = self.__set_measurement_configuration(c_uint8(operationMode), byref(timeRangeArg), byref(frontClippingArg), byref(resolutionArg))
+    return ret, timeRangeArg.value, frontClippingArg.value, resolutionArg.value
 
 class SpcQcX08(__8ChannelDllWrapper):
   INPUT_MODES = Literal["Input", "Calibration Input", 0, 2]
@@ -833,7 +923,7 @@ class SpcQcX08(__8ChannelDllWrapper):
     events = self.__get_raw_event_triplets_from_buffer_to_file(c_uint32(minEventTriplets), c_uint32(maxEventTriplets), c_uint8(cardNumber), c_uint32(idx), c_uint32(timeoutMs), c_char_p(dirPath.encode()))
     return f"{dirPath}/SPC_QC_X08_record_{idx}.data", events
 
-class Pms800(__8ChannelDllWrapper):
+class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
   INPUT_MODES = Literal["Input", "Gated Input", "Calibration Input", 0, 1, 2]
   input_modes = {"Input": 0, "Gated Input": 1, "Calibration Input": 2}
   modes_input = {0: "Input", 1: "Gated Input", 2: "Calibration Input"}
@@ -847,18 +937,6 @@ class Pms800(__8ChannelDllWrapper):
 
     self.__get_event_count_thresholds = self.__dll.get_event_count_thresholds
     self.__get_event_count_thresholds.argtypes = [POINTER(c_uint8)]
-
-    self.__get_events_from_buffer = self.__dll.get_events_from_buffer
-    self.__get_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
-    self.__get_events_from_buffer.restype = c_int64
-
-    self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
-    self.__get_raw_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
-    self.__get_raw_events_from_buffer.restype = c_int64
-
-    self.__get_raw_events_from_buffer_to_file = self.__dll.get_raw_events_from_buffer_to_file
-    self.__get_raw_events_from_buffer_to_file.argtypes = [c_uint32, c_uint32, c_uint8, c_uint32, c_uint32, c_char_p]
-    self.__get_raw_events_from_buffer_to_file.restype = c_int64
 
     self.__set_event_count_threshold = self.__dll.set_event_count_threshold
     self.__set_event_count_threshold.argtypes = [c_uint8, c_uint8]
@@ -910,17 +988,6 @@ class Pms800(__8ChannelDllWrapper):
         raise ValueError(f"{[value]} not part of {self.INPUT_MODES}")
       self._8ChannelDllWrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
 
-  def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], maxEvents, cardNumber, filterMTOs: bool=False):
-    getEvents = self.__get_events_from_buffer if filterMTOs else self.__get_raw_events_from_buffer
-    events = getEvents(buffer.ctypes.data, c_uint32(maxEvents), c_uint8(cardNumber))
-    return buffer, events
-
-  def get_evens_from_buffer_to_file(self, cardNumber: int, dirPath: str, idx: int, minEvents: int, maxEvents: int | None = None, timeoutMs: int = 10_000) -> tuple[str, int]:
-    if maxEvents is None:
-      maxEvents = minEvents
-    events = self.__get_raw_events_from_buffer_to_file(c_uint32(minEvents), c_uint32(maxEvents), c_uint8(cardNumber), c_uint32(idx), c_uint32(timeoutMs), c_char_p(dirPath.encode()))
-    return f"{dirPath}/PMS_800_record_{idx}.data", events
-
   def set_measurement_configuration(self, operationMode, timeRange, frontClipping, resolution, binSize):
     timeRangeArg = c_uint32(timeRange)
     frontClippingArg = c_uint32(frontClipping)
@@ -928,234 +995,6 @@ class Pms800(__8ChannelDllWrapper):
     binSizeArg = c_uint32(binSize)
     ret = self.__set_measurement_configuration(c_uint8(operationMode), byref(timeRangeArg), byref(frontClippingArg), byref(resolutionArg), byref(binSizeArg))
     return ret, timeRangeArg.value, frontClippingArg.value, resolutionArg.value, binSizeArg.value
-
-class SpcQcDllWrapper:
-  def __init__(self, dllPath = None):
-    pass
-
-  def abort_data_collection(self):
-    self.__abort_data_collection()
-
-  def deinit_data_collection(self):
-    self.__deinit_data_collection()
-
-  def deinit_data_collections(self):
-    self.__deinit_data_collections()
-
-  def deinit(self):
-    return self.__deinit()
-
-  def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], maxEvents, cardNumber, filterMTOs: bool=False):
-    getEvents = self.__get_events_from_buffer if filterMTOs else self.__get_raw_events_from_buffer
-    arg2 = c_uint32(maxEvents)
-    arg3 = c_uint8(cardNumber)
-    events = getEvents(buffer.ctypes.data, arg2, arg3)
-    return buffer, events
-
-  def get_events_from_buffer_to_file(self, cardNumber, filePath, threadEvent: threading.Event, filterMTOs: bool=False):
-    getEvents = self.__get_events_from_buffer if filterMTOs else self.__get_raw_events_from_buffer
-    Path(filePath).parent.mkdir(parents=True, exist_ok=True)
-    with open(filePath, 'wb') as file:
-      buffer_size = 8388607
-      buffer = np.array([0]*int(buffer_size), dtype=np.uint32) # 1GiB
-      arg2 = c_uint32(buffer_size)#0x7F_FFFF)#4000_0000)
-      arg3 = c_uint8(cardNumber)
-
-      while not threadEvent.isSet():
-        events = getEvents(buffer.ctypes.data, buffer_size, arg3)
-        if events > 0:
-          file.write(buffer[:int(events)])
-
-      events = getEvents(buffer.ctypes.data, c_uint32(0), arg3)
-      while events > 0:
-        events = getEvents(buffer.ctypes.data, arg2, arg3)
-        if events > 0:
-          file.write(buffer[:int(events)])
-
-  def get_firmware_version(self):
-    return self.__get_firmware_version()
-
-  def get_marker_enables(self):
-    markerEnables = self.__get_marker_enables()
-    return [(markerEnables & 0x1), (markerEnables & 0x2), (markerEnables & 0x4), (markerEnables & 0x8)]
-
-  def get_marker_polarities(self):
-    markerPolarities = self.__get_marker_polarities()
-    return [(markerPolarities & 0x1), (markerPolarities & 0x2), (markerPolarities & 0x4), (markerPolarities & 0x8)]
-
-  def get_marker_status(self):
-    markers = self.__get_marker_status()
-    return [(markers & 0x1), (markers & 0x2), (markers & 0x4), (markers & 0x8)]
-
-  def get_module_status(self) -> dict:
-    ms = ModuleStatus()
-    ms.asBytes = self.__get_module_status()
-    return dict((field, getattr(ms.b, field)) for field, _ in ms.b._fields_)
-
-  def get_rates(self, channel):
-    arg = c_uint8(channel)
-    return self.__get_rates(arg)
-
-  def get_routing_enables(self):
-    routingEnables = self.__get_routing_enables()
-    return [(routingEnables & 0x1), (routingEnables & 0x2), (routingEnables & 0x4), (routingEnables & 0x8)]
-
-  def init(self, moduleList: list[int], logPath: str=None, emulateHardware: bool=False) -> int:
-    arg1 = (ModuleInit * len(moduleList))()
-    self.serialNumber = []
-
-    self.logPath = logPath
-
-    for i in range(len(moduleList)):
-      arg1[i].initialized = False
-      arg1[i].serialNrStr = bytes(0)
-      arg1[i].deviceNr = c_uint8(moduleList[i])
-
-    numberOfHwModules = len(moduleList) if emulateHardware == False else 0
-
-    lpArg = None if logPath is None else logPath.encode('utf-8')
-    ret = self.__init(arg1, c_uint8(numberOfHwModules), lpArg)
-    # Structure objects (arg1) are automatically passed byref
-
-    for module in arg1:
-      self.serialNumber.append(str(module.serialNrStr)[2:-1])
-    return ret
-
-  def initialize_data_collection(self, eventSize):
-    arg = c_uint64(eventSize)
-    self.__initialize_data_collection(byref(arg))
-    return arg.value
-
-  def read_setting(self, settingId):
-    arg1 = c_uint16(settingId)
-    return self.__read_setting(arg1)
-
-  def reset_registers(self):
-    self.__reset_registers()
-    return
-
-  def run_data_collection(self, acquisitionTimeMs, timeoutMs):
-    arg1 = c_uint32(acquisitionTimeMs)
-    arg2 = c_uint32(timeoutMs)
-    return self.__run_data_collection(arg1, arg2)
-
-  def set_card_focus(self, focusOnCardNr):
-    arg = c_uint8(focusOnCardNr)
-    return self.__set_card_focus(arg)
-
-  def set_cfd_threshold(self, channel, threshold) -> float:
-    arg1 = c_uint8(channel)
-    arg2 = c_float(threshold)
-    return self.__set_CFD_threshold(arg1, arg2)
-
-  def set_cfd_zero_cross(self, channel, zeroCross) -> float:
-    arg1 = c_uint8(channel)
-    arg2 = c_float(zeroCross)
-    return self.__set_CFD_zc(arg1, arg2)
-
-  def set_channel_delay(self, channel, nsDelay) -> float:
-    arg1 = c_uint8(channel)
-    arg2 = c_float(nsDelay)
-    return self.__set_channel_delay(arg1, arg2)
-
-  def set_channel_divider(self, channel, divider: int) -> int:
-    arg1 = c_uint8(int(channel))
-    arg2 = c_uint8(divider)
-    return self.__set_channel_divider(arg1, arg2)
-
-  def set_dithering_enable(self, state):
-    arg1 = c_bool(state)
-    return self.__set_dithering_enable(arg1)
-
-  def set_external_trigger_enable(self, state):
-    arg1 = c_bool(state)
-    return self.__set_external_trigger_enable(arg1)
-
-  def set_hardware_countdown_enable(self, state):
-    arg = c_bool(state)
-    return self.__set_hardware_countdown_enable(arg)
-
-  def set_hardware_countdown_time(self, nsTime):
-    arg = c_double(nsTime)
-    ret = self.__set_hardware_countdown_time(arg)
-    if ret < 0:
-      raise HardwareError(f"DLL call set_hardware_countdown_time() returned with {int(ret)}, more details: {self.logPath}")
-    return ret
-
-  def set_marker_enable(self, marker, state):
-    arg1 = c_uint8(marker)
-    arg2 = c_bool(state)
-    return self.__set_marker_enable(arg1, arg2)
-
-  def set_marker_enables(self, states):
-    combinedStates = 0
-    if type(states) is list:
-      for i, state in enumerate(states):
-        if state:
-          combinedStates |= (1 << i)
-      combinedStates &= 0xFF
-    else:
-      combinedStates = (states & 0xFF)
-    arg = c_uint8(combinedStates)
-    return self.__set_marker_enables(arg)
-
-  def set_marker_polarities(self, polarities):
-    combinedPolarities = 0
-    if type(polarities) is list:
-      for i, polarity in enumerate(polarities):
-        if polarity:
-          combinedPolarities |= (1 << i)
-      combinedPolarities &= 0xFF
-    else:
-      combinedPolarities = (polarities & 0xFF)
-    arg = c_uint8(combinedPolarities)
-    return self.__set_marker_polarities(arg)
-
-  def set_marker_polarity(self, marker, polarity):
-    arg1 = c_uint8(marker)
-    arg2 = c_bool(polarity)
-    return self.__set_marker_polarity(arg1, arg2)
-
-  def set_measurement_configuration(self, operationMode, timeRange, frontClipping, resolution):
-    arg1 = c_uint8(operationMode)
-    arg2 = c_uint32(timeRange)
-    arg3 = c_uint32(frontClipping)
-    arg4 = c_uint8(resolution)
-    ret = self.__set_measurement_configuration(arg1, byref(arg2), byref(arg3), byref(arg4))
-    return ret, arg2.value, arg3.value, arg4.value
-
-  def set_routing_enable(self, channel, state):
-    arg1 = c_uint8(channel)
-    arg2 = c_bool(state)
-    return self.__set_routing_enable(arg1, arg2)
-
-  def set_routing_enables(self, states):
-    combinedStates = 0
-    if type(states) is list:
-      for i, state in enumerate(states):
-        if state:
-          combinedStates |= (1 << i)
-      combinedStates &= 0xFF
-    else:
-      combinedStates = (states & 0xFF)
-    arg = c_uint8(combinedStates)
-    return self.__set_routing_enables(arg)
-
-  def set_routing_compensation(self, delay):
-    arg = c_int8(delay)
-    return self.__set_routing_compensation(arg)
-
-  def set_trigger_polarity(self, polarity):
-    arg1 = c_bool(polarity)
-    return self.__set_trigger_polarity(arg1)
-
-  def stop_measurement(self):
-    return self.__stop_measurement()
-
-  def write_setting(self, settingId, value):
-    arg1 = c_uint16(settingId)
-    arg2 = c_uint32(value)
-    return self.__write_setting(arg1, arg2)
 
 def main():
   import bhpy
