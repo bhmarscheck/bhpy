@@ -58,7 +58,7 @@ class __TdcDllWrapper:
       self.noOfRates = noOfRates
 
     if dllPath is None:
-      dllPath = Path(sys.modules["bhpy"].__file__).parent / Path(f"dll/{defaultDllName}.dll")
+      dllPath = Path(sys.modules["bhpy"].__file__).parent.parent.absolute() / Path(f"dll/{defaultDllName}.dll")
     else:
       dllPath = Path(dllPath)
     
@@ -997,7 +997,6 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
     return ret, timeRangeArg.value, frontClippingArg.value, resolutionArg.value, binSizeArg.value
 
 def main():
-  import bhpy
   parser = argparse.ArgumentParser(prog="SPC-QC-X04 DLL Wrapper", description="SPC-QC-X04 dll wrapper that provides python bindings to use Becker&Hickls' SPC-QC-X04 hardware through the dll")
   parser.add_argument('dll_path', nargs='?', default=None)
 
