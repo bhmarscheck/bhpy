@@ -75,12 +75,10 @@ class __TdcDllWrapper:
     self.__get_dll_version(self.versionStrBuf, c_uint8(128))
     self.versionStr = str(self.versionStrBuf.value)[2:-1]
 
-    match = re.match(r"(\d+)\.(\d+)\.(\d+)", self.versionStr)
-    major = int(match.group(1))
-    minor = int(match.group(2))
-    patch = int(match.group(3))
-    if (major != 2):
-      raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {major}.{minor}.{patch} Expected >= 2.0.0, < 3")
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)\+([0-9a-fA-F]+)", self.versionStr)
+    self.version = {"major": int(match.group(1)), "minor": int(match.group(2)), "patch": int(match.group(3)), "commitID": match.group(4)}
+    if (self.version["major"] != 2):
+      raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: {self.version['major']}.{self.version['minor']}.{self.version['patch']} Expected >= 2.0.0, < 3")
     
     self.__get_dll_debug = self.__dll.get_dll_debug
     self.__get_dll_debug.restype = c_uint8
@@ -189,21 +187,24 @@ class __TdcDllWrapper:
   @property
   def channelEnables(self) -> list[bool]:
     enables = self.__get_channel_enables()
-    return reversed([True if digit > 0 else False for digit in format(enables, '08b')]) # so first in list end up in leas significant bit
+    return list(reversed([bool(int(digit)) for digit in format(enables, f'0{self.noOfChannels}b')])) # so first in list end up in leas significant bit
   @channelEnables.setter
-  def channelEnables(self, values: list[bool] | tuple[int, bool]):
-    if type(values) is list:
-      output = 0
-      for bit in reversed(values): # so first in list end up in leas significant bit
-        output = output * 2 + 1 if bit else output * 2
-      self.__set_channel_enables(c_uint8(output)) #TODO check all setters to not use get functions
-    else:
+  def channelEnables(self, values: list[bool] | int | tuple[int, bool]):
+    output = 0
+    if type(values) is tuple:
       channel, value = values
       self.__set_channel_enable(c_uint8(channel), c_bool(value))
+      return
+    elif type(values) is list:
+      for bit in reversed(values): # so first in list end up in leas significant bit
+        output = output * 2 + 1 if bit else output * 2
+    else:
+      output = values
+    self.__set_channel_enables(c_uint8(output)) #TODO check all setters to not use get functions
   
   @property
   def externalTriggerEnable(self) -> bool:
-    return True if self.__get_external_trigger_enable() > 0 else False # TODO alle enables returns
+    return bool(self.__get_external_trigger_enable()) # TODO alle enables returns
   @externalTriggerEnable.setter
   def externalTriggerEnable(self, enable: bool):
     self.__set_external_trigger_enable(c_bool(enable)) # TODO raise on error return for all
@@ -213,8 +214,8 @@ class __TdcDllWrapper:
     return self.__get_firmware_version()
   
   @property
-  def hardwareCountdownEnable(self) -> int:
-    return self.__get_hardware_countdown_enable()
+  def hardwareCountdownEnable(self) -> bool:
+    return bool(self.__get_hardware_countdown_enable())
   @hardwareCountdownEnable.setter
   def hardwareCountdownEnable(self, state):
     self.__set_hardware_countdown_enable(c_bool(state))
@@ -391,7 +392,7 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
   @property
   def polarities(self):
     polarities = self.__get_channel_polarities()
-    return reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, '08b')]) # so first in list end up in leas significant bit
+    return list(reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, f'0{self.noOfChannels}b')])) # so first in list end up in leas significant bit
   #TODO remove empty lines between property and setter
   @polarities.setter
   def polarities(self, values: list[TdcLiterals.POLARITIES | int] | tuple[int, TdcLiterals.POLARITIES | int]):
@@ -437,7 +438,7 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
   
   @property
   def pulsgeneratorEnable(self):
-    return self.__get_pulsgenerator_enable()
+    return bool(self.__get_pulsgenerator_enable())
   
   @pulsgeneratorEnable.setter
   def pulsgeneratorEnable(self, enable: bool):
@@ -445,7 +446,7 @@ class __8ChannelDllWrapper(__TdcDllWrapper):
   
   @property
   def triggerCountdownEnable(self):
-    return self.__get_trigger_countdown_enable()
+    return bool(self.__get_trigger_countdown_enable())
   
   @triggerCountdownEnable.setter
   def triggerCountdownEnable(self, enable: bool):
@@ -682,7 +683,7 @@ class SpcQcX04(__EventStream32Bit):
 
   @property
   def ditheringEnable(self):
-    return self.__get_dithering_enable()
+    return bool(self.__get_dithering_enable())
   @ditheringEnable.setter
   def ditheringEnable(self, enable: bool):
     self.__set_dithering_enable(c_bool(enable))
@@ -715,7 +716,7 @@ class SpcQcX04(__EventStream32Bit):
   @property
   def markerPolarities(self):
     polarities = self.__get_marker_polarities()
-    return reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, '04b')])
+    return list(reversed([TdcLiterals.__polarities[digit] for digit in format(polarities, f'0{self.noOfChannels}b')]))
   @markerPolarities.setter
   def markerPolarities(self, polarities: Markers | list[int] | int | tuple[TdcLiterals.MARKER, int]):
     if type(polarities) is tuple:
@@ -808,7 +809,7 @@ class SpcQcX04(__EventStream32Bit):
   @property
   def routingEnables(self):
     enables = self.__get_routing_enables()
-    return reversed([True if bit else False for bit in format(enables, '04b')])
+    return list(reversed([bool(int(bit)) for bit in format(enables, f'0{self.noOfChannels}b')]))
   @routingEnables.setter
   def routingEnables(self, enables: list[bool, int] | int | tuple[int, bool | int]):
     if type(enables) is tuple:
@@ -1002,26 +1003,9 @@ def main():
 
   args = parser.parse_args()
 
-  spcQcX04s = [SpcQcX08(args.dll_path),Pms800(args.dll_path),SpcQcX04(args.dll_path)]
-  
-  for spcQcX04 in spcQcX04s:
-    print(spcQcX04.versionStr)
-    spcQcX04.init([0], emulateHardware=True)
-    print(spcQcX04.serialNumber)
-    print(f"Dll debuggable: {spcQcX04.dllIsDebugVersion}\n")
-    if hasattr(spcQcX04, "inputmodes"):
-      print(spcQcX04.inputmodes)
-      spcQcX04.inputmodes = [0,2,2,0,2,2,2,2]
-      print(spcQcX04.inputmodes)
-      spcQcX04.inputmodes = ["Input","Input","Input","Calibration Input","Calibration Input","Calibration Input"]
-      print(spcQcX04.inputmodes)
-      spcQcX04.inputmodes = ["Input","Input","Calibration Input",2,2,2,"Input",2]
-      print(spcQcX04.inputmodes)
-      spcQcX04.inputmodes = (0, 2)
-      print(spcQcX04.inputmodes)
-      spcQcX04.inputmodes = (0, "Input")
-      print(spcQcX04.inputmodes)
-    print("\n")
+  cardX08 = SpcQcX08(dllPath="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X08_dbg.dll")
+  cardX08.init([0], emulateHardware=True)
+  print(cardX08.channelEnables)
 
   input("press enter...\n\n")
 
