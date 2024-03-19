@@ -637,11 +637,12 @@ class SpcQcX04(__EventStream32Bit):
   def cfdThresholds(self) -> list[float]:
     thresholds = (c_float * self.noOfChannels)()
     self.__get_CFD_thresholds(cast(thresholds, POINTER(c_float)))
-    return thresholds[:]
+    return [x if x >= -500 else None for x in thresholds[:]]
   @cfdThresholds.setter
   def cfdThresholds(self, values: list[float] | tuple[int, float]):
     if type(values) is list:
-      self.__set_CFD_thresholds(cast((c_float * self.noOfChannels)(*values), POINTER(c_float)))
+      thresholds = (c_float * self.noOfChannels)(*values)
+      self.__set_CFD_thresholds(cast(thresholds, POINTER(c_float)))
     else:
       channel, value = values
       self.__set_CFD_threshold(c_uint8(channel), c_float(value))
@@ -650,11 +651,12 @@ class SpcQcX04(__EventStream32Bit):
   def cfdZeroCross(self) -> list[float]:
     zeroCrosses = (c_float * self.noOfChannels)()
     self.__get_CFD_zcs(cast(zeroCrosses, POINTER(c_float)))
-    return zeroCrosses[:]
+    return [x if x >= -96 else None for x in zeroCrosses[:]]
   @cfdZeroCross.setter
   def cfdZeroCross(self, values: list[float] | tuple[int, float]):
     if type(values) is list:
-      self.__set_CFD_zcs(cast((c_float * self.noOfChannels)(*values), POINTER(c_float)))
+      zeroCrosses = (c_float * self.noOfChannels)(*values)
+      self.__set_CFD_zcs(cast(zeroCrosses, POINTER(c_float)))
     else:
       channel, value = values
       self.__set_CFD_zc(c_uint8(channel), c_float(value))
@@ -1003,11 +1005,11 @@ def main():
 
   args = parser.parse_args()
 
-  cardX08 = SpcQcX08(dllPath="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X08_dbg.dll")
-  cardX08.init([0], emulateHardware=True)
-  print(cardX08.channelEnables)
-
-  input("press enter...\n\n")
+  cardX04 = SpcQcX04(dllPath="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X04_dbg.dll")
+  cardX04.init([0], emulateHardware=True)
+  cardX04.cfdZeroCross = [96.0, 960.0, 9_600.0, 96_000.0]
+  print(cardX04.cfdZeroCross)
+  assert all(zeroCross == 96.0 for zeroCross in cardX04.cfdZeroCross)
 
 if __name__ == '__main__':
   main()
