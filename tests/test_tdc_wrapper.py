@@ -144,6 +144,9 @@ class TestX04:
       assert self.cardX04.cfdZeroCross[i] == -0.75
       self.cardX04.cfdZeroCross = (i, .5)
       assert self.cardX04.cfdZeroCross[i] == 0.75
+  
+  def test_channelDelays(self):
+    assert all(delay == 0.0 for delay in self.cardX04.channelDelays)
 
 class TestPms:
   cardPms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
