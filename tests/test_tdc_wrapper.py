@@ -17,7 +17,7 @@ class Constants:
     version = [2, 3, 0]
 
 @pytest.mark.skipif(skip_x08, reason="Test development")
-class Test_x08:
+class Test_X08:
     card_x08 = bh.SpcQcX08(dll_path="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X08.dll")
     def test_init_x08(self):
         assert [self.card_x08.version["major"],self.card_x08.version["minor"],self.card_x08.version["patch"]] == Constants.version
@@ -72,7 +72,7 @@ class Test_x08:
         assert all(rate == 0 for rate in self.card_x08.rates)
 
 @pytest.mark.skipif(skip_x04, reason = "Test Development")
-class Test_x04:
+class Test_X04:
     card_x04 = bh.SpcQcX04("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X04.dll")
     def test_init_x04(self):
         assert [self.card_x04.version["major"], self.card_x04.version["minor"], self.card_x04.version["patch"]] == Constants.version
@@ -228,7 +228,7 @@ class Test_x04:
 
 
 @pytest.mark.skipif(skip_pms, reason = "Test Development")
-class Test_pms:
+class Test_Pms:
     card_pms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
     def test_init_pms(self):
         assert [self.card_pms.version["major"],self.card_pms.version["minor"],self.card_pms.version["patch"]] == Constants.version
@@ -281,3 +281,6 @@ class Test_pms:
 
     def test_rates(self):
         assert all(rate == 0 for rate in self.card_pms.rates)
+
+#class Test_PEP8:
+    # run flake8 bhpy/ --max-line-length 99 and check for no return otherwise print return
