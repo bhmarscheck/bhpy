@@ -28,7 +28,7 @@ class TdcLiterals:
   DEFAULT_NAMES = Literal["spc_qc_X04", "spc_qc_X08", "pms_800"]
 
   MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
-  __markerToInt = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
+  _markerToInt = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
 
   POLARITIES = Literal["Falling", "Rising"]
   __polaritiesToInt = {"Falling": 0, "Rising": 1}
@@ -694,20 +694,20 @@ class SpcQcX04(__EventStream32Bit):
   def markerEnables(self) -> Markers:
     enables = self.__get_marker_enables()
     return Markers(pixel = (enables & 0x1) > 0, line = (enables & 0x2) > 0, frame = (enables & 0x4) > 0, marker3 = (enables & 0x8) > 0)
-  @markerEnables.setter
+  @markerEnables.setter #TODO add bool to turn all on/off
   def markerEnables(self, enables: Markers | list[bool, int] | int | tuple[TdcLiterals.MARKER, bool | int]):
     if type(enables) is tuple:
       marker, enable = enables
       if type(marker) is str:
-        marker = TdcLiterals.__markerToInt[marker]
+        marker = TdcLiterals._markerToInt[marker]
       self.__set_marker_enable(c_uint8(marker), c_bool(enable))
       return
     elif type(enables) is int:
       enablesArg = enables
-    elif type(enables) is Markers:
+    elif type(enables) is dict:
       enables = [enables["pixel"], enables["line"], enables["frame"], enables["marker3"]]
     elif type(enables) is not list:
-      raise ValueError()
+      raise ValueError("markerEnables excepts the following types: bhpy.Markers | list[bool, int] | int | tuple[TdcLiterals.MARKER, bool | int]")
     
     if type(enables) is list:
       enablesArg = 0
@@ -724,7 +724,7 @@ class SpcQcX04(__EventStream32Bit):
     if type(polarities) is tuple:
       marker, polarity = polarities
       if type(marker) is str:
-        marker = TdcLiterals.__markerToInt[marker]
+        marker = TdcLiterals._markerToInt[marker]
       self.__set_marker_polarity(c_uint8(marker), c_bool(polarity))
       return
     elif type(polarities) is int:
@@ -1007,9 +1007,13 @@ def main():
 
   cardX04 = SpcQcX04(dllPath="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X04_dbg.dll")
   cardX04.init([0], emulateHardware=True)
-  cardX04.cfdZeroCross = [96.0, 960.0, 9_600.0, 96_000.0]
-  print(cardX04.cfdZeroCross)
-  assert all(zeroCross == 96.0 for zeroCross in cardX04.cfdZeroCross)
+  print(cardX04.markerEnables)
+  print(list(cardX04.markerEnables))
+  for i, name in enumerate(TdcLiterals.MARKER):
+      cardX04.markerEnables = (name, True)
+      assert cardX04.markerEnables[name] == True
+      cardX04.markerEnables = 1<<i
+      assert cardX04.markerEnables[name] == True
 
 if __name__ == '__main__':
   main()
