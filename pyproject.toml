@@ -44,3 +44,6 @@ classifiers = [
 "Homepage" = "https://www.becker-hickl.com/products/bhpy"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
 "Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v2.1.0/bhpy-v2.1.0.tar.gz"
+
+[tool.flake8]
+max-line-length = 99
