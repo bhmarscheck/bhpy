@@ -12,36 +12,36 @@ except ModuleNotFoundError as err:
 
 
 class LVConnectQC008:
-    def __init__(self, dllPath: Path | str | None = None, machineName: str | None = None,
-                 errorStringBufferLen: int = 512, resultStringBufferLen: int = 512):
-        if dllPath is None:
-            dllPath = Path(sys.modules["bhpy"].__file__).parent / Path("dll/ControlQC008.dll")
+    def __init__(self, dll_path: Path | str | None = None, machine_name: str | None = None,
+                 error_string_buffer_len: int = 512, result_string_buffer_len: int = 512):
+        if dll_path is None:
+            dll_path = Path(sys.modules["bhpy"].__file__).parent / Path("dll/ControlQC008.dll")
         else:
-            dllPath = Path(dllPath)
+            dll_path = Path(dll_path)
 
-        self.__dll = CDLL(str(dllPath.absolute()))
+        self.__dll = CDLL(str(dll_path.absolute()))
         self.__Dll_ControlQC008 = self.__dll.Dll_ControlQC008
 
         self.__Dll_ControlQC008.argtypes = [c_char_p, c_char_p, c_char_p, c_int32, c_char_p,
                                             c_int32, POINTER(c_float), c_int32]
         self.__Dll_ControlQC008.restype = c_int32
 
-        if machineName is None:
-            self.machineName = "localhost".encode('utf-8')
+        if machine_name is None:
+            self.machine_name = "localhost".encode('utf-8')
         else:
-            self.machineName = machineName.encode('utf-8')
+            self.machine_name = machine_name.encode('utf-8')
 
-        self.errString = create_string_buffer(errorStringBufferLen)
-        self.resultString = create_string_buffer(resultStringBufferLen)
+        self.errString = create_string_buffer(error_string_buffer_len)
+        self.resultString = create_string_buffer(result_string_buffer_len)
         self.rates = (c_float * 8)()
 
-    def command(self, command: str, commandArg: str, machineName: str | None = None):
-        if machineName is None:
-            machineName = self.machineName
+    def command(self, command: str, command_arg: str, machine_name: str | None = None):
+        if machine_name is None:
+            machine_name = self.machine_name
         else:
-            machineName = machineName.encode('utf-8')
+            machine_name = machine_name.encode('utf-8')
 
-        res = self.__Dll_ControlQC008(f"{command} {commandArg}".encode('utf-8'), machineName,
+        res = self.__Dll_ControlQC008(f"{command} {command_arg}".encode('utf-8'), machine_name,
                                       self.errString, len(self.errString), self.resultString,
                                       len(self.resultString), self.rates, len(self.rates))
         if 0 == res:
@@ -49,13 +49,13 @@ class LVConnectQC008:
         else:
             raise ChildProcessError(f"{self.errString.value.decode()} ({res})")
 
-    def get_rates(self, machineName: str | None = None):
-        if machineName is None:
-            machineName = self.machineName
+    def get_rates(self, machine_name: str | None = None):
+        if machine_name is None:
+            machine_name = self.machine_name
         else:
-            machineName = machineName.encode('utf-8')
+            machine_name = machine_name.encode('utf-8')
 
-        if 0 == self.__Dll_ControlQC008("".encode('utf-8'), machineName, None, 0, None, 0,
+        if 0 == self.__Dll_ControlQC008("".encode('utf-8'), machine_name, None, 0, None, 0,
                                         self.rates, 8):
             return list(self.rates)
         else:
@@ -64,11 +64,11 @@ class LVConnectQC008:
 
 def main():
     import appdirs
-    lVConnectQC008 = LVConnectQC008()
-    print(lVConnectQC008.command("ScrPrt",
-                                 f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}"
-                                 "LVConnectQC008\\temp\\lvtest.png"))
-    print(lVConnectQC008.get_rates())
+    lv_connect_qc008 = LVConnectQC008()
+    print(lv_connect_qc008.command("ScrPrt",
+                                   f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}"
+                                   "LVConnectQC008\\temp\\lvtest.png"))
+    print(lv_connect_qc008.get_rates())
 
 
 if __name__ == '__main__':

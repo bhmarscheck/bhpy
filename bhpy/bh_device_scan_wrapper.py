@@ -25,17 +25,17 @@ class HardwareError(IOError):
 
 
 class BHDeviceScan:
-    versionStr = ""
-    versionStrBuf = create_string_buffer(128)
+    version_str = ""
+    version_str_buf = create_string_buffer(128)
 
-    def __init__(self, dllPath=None):
-        if dllPath is None:
-            dllPath = Path(sys.modules["bhpy"].__file__).parent / Path("dll/bh_device_scan.dll")
+    def __init__(self, dll_path=None):
+        if dll_path is None:
+            dll_path = Path(sys.modules["bhpy"].__file__).parent / Path("dll/bh_device_scan.dll")
         else:
-            dllPath = Path(dllPath)
+            dll_path = Path(dll_path)
 
         try:
-            self.__dll = CDLL(str(dllPath.absolute()))
+            self.__dll = CDLL(str(dll_path.absolute()))
         except FileNotFoundError as e:
             log.error(e)
             raise
@@ -44,10 +44,10 @@ class BHDeviceScan:
         self.__get_dll_version.argtypes = [c_char_p, c_uint8]
         self.__get_dll_version.restype = c_int16
 
-        self.__get_dll_version(self.versionStrBuf, c_uint8(128))
-        self.versionStr = str(self.versionStrBuf.value)[2:-1]
+        self.__get_dll_version(self.version_str_buf, c_uint8(128))
+        self.version_str = str(self.version_str_buf.value)[2:-1]
 
-        match = re.match(r"(\d+)\.(\d+)\.(\d+)", self.versionStr)
+        match = re.match(r"(\d+)\.(\d+)\.(\d+)", self.version_str)
         major = int(match.group(1))
         minor = int(match.group(2))
         patch = int(match.group(3))
@@ -59,9 +59,9 @@ class BHDeviceScan:
         self.__bhScanHardware.argtypes = [c_void_p]
         self.__bhScanHardware.restype = c_int16
 
-    def bhScanHardware(self) -> list:
+    def bh_scan_hardware(self) -> list:
         arg1 = (HardwareScanResult * 32)()
-        serialNumber = []
+        serial_number = []
 
         for i in range(32):
             arg1[i].friendlyName = bytes(0)
@@ -74,12 +74,12 @@ class BHDeviceScan:
         if ret > 0:
             for i, modul in enumerate(arg1):
                 if i < ret:
-                    serialNumber.append((str(modul.friendlyName)[2:-1],
+                    serial_number.append((str(modul.friendlyName)[2:-1],
                                          str(modul.serialNumber)[2:-1],
                                          str(modul.firmwareVersion)[2:-1]))
                 else:
                     break
-        return serialNumber
+        return serial_number
 
 
 def main():
@@ -91,8 +91,8 @@ def main():
 
     args = parser.parse_args()
 
-    bhScan = BHDeviceScan(args.dll_path)
-    print(bhScan.bhScanHardware())
+    bh_scan = BHDeviceScan(args.dll_path)
+    print(bh_scan.bh_scan_hardware())
     input("press enter...")
 
 
