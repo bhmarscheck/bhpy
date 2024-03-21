@@ -10,13 +10,17 @@ except ModuleNotFoundError as err:
     log.error(err)
     raise
 
+
 class Pms800Conf():
     default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/Pms800/Config.json"
     pass
 
+
 class SpcQcX08Conf():
     default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX08/Config.json"
     pass
+
+
 class SpcQcX04Conf():
     default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX04/Config.json"
 
@@ -27,13 +31,13 @@ class SpcQcX04Conf():
 
     DELTA_TIME_MODE = "Δt"
 
-    def __init__(self, configPath: str=default_path) -> None:
+    def __init__(self, configPath: str = default_path) -> None:
         SpcQcX04Conf.default_path = configPath
         self.selectedCard = '1'
         self.restore_defaults()
         self.load_conf(configPath)
 
-    def load_conf(self, confPath = None) -> None:
+    def load_conf(self, confPath=None) -> None:
         if confPath is None:
             confPath = self.default_path
         try:
@@ -41,24 +45,25 @@ class SpcQcX04Conf():
                 jsonConf = json.load(f)
                 for name in jsonConf:
                     setattr(self, name, jsonConf[name])
-        except:
+        except FileNotFoundError:
             self.write_conf(confPath)
 
-    def write_conf(self, confPath = None) -> None:
+    def write_conf(self, confPath=None) -> None:
         if confPath is None:
             confPath = self.default_path
         confDict = self.__dict__
         confDict.pop('default_path', None)
         Path(confPath).parent.mkdir(parents=True, exist_ok=True)
         with open(confPath, 'w', encoding='utf8') as f:
-            json.dump(confDict, f, indent = 2, sort_keys = True, default = str, ensure_ascii=False)
+            json.dump(confDict, f, indent=2, sort_keys=True, default=str, ensure_ascii=False)
 
     def restore_config(self) -> None:
         '''Resets the Hardware settings.
 
-        Settings that require little or no changes after initial setup because they are tied to the
-        measurement system's components and their assembly, get set to values that are either the
-        hardware defaults or good starting point'''
+        Settings that require little or no changes after initial setup
+        because they are tied to the measurement system's components and
+        their assembly, get set to values that are either the hardware
+        defaults or good starting point'''
         # Channel wise settings
         self.threshold = [-50.0, -50.0, -50.0, -50.0]
         self.zeroCross = [12.0, 12.0, 12.0, 12.0]
@@ -69,7 +74,8 @@ class SpcQcX04Conf():
 
         # Marker wise settings
         self.markerEn = [False, False, False, False]
-        self.markerEdge = [self.POSITIVE_EDGE, self.POSITIVE_EDGE, self.POSITIVE_EDGE, self.POSITIVE_EDGE]
+        self.markerEdge = [self.POSITIVE_EDGE, self.POSITIVE_EDGE, self.POSITIVE_EDGE,
+                           self.POSITIVE_EDGE]
 
         # Other settings
         self.ditheringEn = True
@@ -79,8 +85,9 @@ class SpcQcX04Conf():
     def restore_measurement(self) -> None:
         '''Resets the measurement parameters
 
-        Parameters that are related to the individual measurement, that may be changed according to the
-        need of the test specimen or the expected/desired experiment results'''
+        Parameters that are related to the individual measurement, that
+        may be changed according to the need of the test specimen or the
+        expected/desired experiment results'''
         self.channelDelay = [0., 0., 0., 0.]
         self.timeRangePs = 4_194_573
         self.frontClippingNs = 0
@@ -93,6 +100,7 @@ class SpcQcX04Conf():
     def restore_defaults(self) -> None:
         '''Resets all settings and parameters
 
-        Dispatcher call for all different categories of settings and parameters'''
+        Dispatcher call for all different categories of settings and
+        parameters'''
         self.restore_config()
         self.restore_measurement()
