@@ -19,7 +19,7 @@ except ModuleNotFoundError as err:
     log.error(err)
     raise
 
-requestHandlerQueue = Queue()
+request_handler_queue = Queue()
 
 
 class _ImageReceiveHandler(socketserver.BaseRequestHandler):
@@ -32,10 +32,10 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
     def handle(self):
         data = self.request.recv(1)
         filename = self.request.recv(int.from_bytes(data)).decode()
-        imageDir = (f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect/temp/"
-                    f"{filename}")
-        Path(imageDir).parent.mkdir(parents=True, exist_ok=True)
-        with open(imageDir, 'wb') as f:
+        image_dir = (f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect/temp/"
+                     f"{filename}")
+        Path(image_dir).parent.mkdir(parents=True, exist_ok=True)
+        with open(image_dir, 'wb') as f:
             data = self.request.recv(4096)
             while data:
                 f.write(data)
@@ -43,7 +43,7 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
                     data = self.request.recv(4096)
                 except ConnectionResetError:
                     break
-        requestHandlerQueue.put(imageDir)
+        request_handler_queue.put(image_dir)
 
 
 class _TraceReceiveHandler(socketserver.BaseRequestHandler):
@@ -54,17 +54,17 @@ class _TraceReceiveHandler(socketserver.BaseRequestHandler):
         return super().finish()
 
     def handle(self):
-        traceVals = []
+        trace_vals = []
         data = self.request.recv(4)
-        valuesToReceive = int.from_bytes(data, byteorder='little', signed=False)
-        while valuesToReceive > len(traceVals):
+        values_to_receive = int.from_bytes(data, byteorder='little', signed=False)
+        while values_to_receive > len(trace_vals):
             try:
                 data = self.request.recv(4096)
             except ConnectionResetError:
                 break
             for x in range(0, len(data), 4):
-                traceVals.append(int.from_bytes(data[x:x+4], byteorder='little', signed=False))
-        requestHandlerQueue.put(traceVals)
+                trace_vals.append(int.from_bytes(data[x:x+4], byteorder='little', signed=False))
+        request_handler_queue.put(trace_vals)
 
 
 class BHConnect():
@@ -75,48 +75,48 @@ class BHConnect():
         self.port = port
         self.sock: socket.socket = None
 
-        self.serverPublicKey = None
+        self.server_public_key = None
 
-        self.privateKey = None
-        self.privateKeySize = None
+        self.private_key = None
+        self.private_key_size = None
 
-        self.serviceInfo = None
+        self.service_info = None
 
     def __on_service_state_change(self, zeroconf: Zeroconf, service_type, name, state_change):
         if state_change is ServiceStateChange.Added:
             a = zeroconf.get_service_info(service_type, name)
-            if a.name == f"SPCMRemoteControl:{self.mdnsServiceID}._bhipc._tcp.local.":
-                self.serviceInfo = a
+            if a.name == f"SPCMRemoteControl:{self.mdns_service_id}._bhipc._tcp.local.":
+                self.service_info = a
                 self.wait.set()
 
-    def __encrypt_msg(self, plainMsg):
+    def __encrypt_msg(self, plain_msg):
         # generate session key
-        sessionKey = get_random_bytes(16)
+        session_key = get_random_bytes(16)
 
         # encrypt session key with public server rsa key
-        cipherRsa = PKCS1_OAEP.new(self.serverPublicKey)
-        enc_session_key = cipherRsa.encrypt(sessionKey)
+        cipher_rsa = PKCS1_OAEP.new(self.server_public_key)
+        enc_session_key = cipher_rsa.encrypt(session_key)
 
         # encrypt public server key with session key
-        cipher_aes = AES.new(sessionKey, AES.MODE_EAX)
-        paddedMsg = pad(plainMsg, 16)
-        encPaddedMsg, tag = cipher_aes.encrypt_and_digest(paddedMsg)
-        return (enc_session_key + cipher_aes.nonce + tag + encPaddedMsg)
+        cipher_aes = AES.new(session_key, AES.MODE_EAX)
+        padded_msg = pad(plain_msg, 16)
+        enc_padded_msg, tag = cipher_aes.encrypt_and_digest(padded_msg)
+        return (enc_session_key + cipher_aes.nonce + tag + enc_padded_msg)
 
-    def __decrypt_msg(self, encryptedMsg):
-        n = self.privateKeySize
-        encSessionKey = encryptedMsg[:n]
-        nonce = encryptedMsg[n:n+16]
-        tag = encryptedMsg[n+16:n+32]
-        cipherText = encryptedMsg[n+32:]
+    def __decrypt_msg(self, encrypted_msg):
+        n = self.private_key_size
+        enc_session_key = encrypted_msg[:n]
+        nonce = encrypted_msg[n:n+16]
+        tag = encrypted_msg[n+16:n+32]
+        cipher_text = encrypted_msg[n+32:]
 
-        cipherRsa = PKCS1_OAEP.new(self.privateKey)
-        sessionKey = cipherRsa.decrypt(encSessionKey)
+        cipher_rsa = PKCS1_OAEP.new(self.private_key)
+        session_key = cipher_rsa.decrypt(enc_session_key)
 
-        cipherAes = AES.new(sessionKey, AES.MODE_EAX, nonce)
-        paddedData = cipherAes.decrypt_and_verify(cipherText, tag)
+        cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+        padded_data = cipher_aes.decrypt_and_verify(cipher_text, tag)
 
-        return (unpad(paddedData, 16))
+        return (unpad(padded_data, 16))
 
     def __send(self, data):
         msg = self.__encrypt_msg(data)
@@ -143,13 +143,13 @@ class BHConnect():
         finally:
             s.close()
 
-    def findSpcmInstance(self, serviceID: int = 1):
-        instanceFound = False
-        if serviceID is None:
-            serviceID = 1
-        self.serviceInfo = []
-        self.mdnsServiceID = serviceID
-        self.mdnsIDCounter = 0
+    def find_spcm_instance(self, service_id: int = 1):
+        instance_found = False
+        if service_id is None:
+            service_id = 1
+        self.service_info = []
+        self.mdns_service_id = service_id
+        self.mdns_id_counter = 0
         retries = 0
         while retries < 3:
             zeroconf = Zeroconf()
@@ -158,36 +158,36 @@ class BHConnect():
             self.wait = threading.Event()
             self.wait.wait(3)
             zeroconf.remove_all_service_listeners()
-            if self.serviceInfo:
-                host = self.serviceInfo.server.split('.', 1)[0]
-                if self.__wait_host_port(host, self.serviceInfo.port):
-                    instanceFound = True
+            if self.service_info:
+                host = self.service_info.server.split('.', 1)[0]
+                if self.__wait_host_port(host, self.service_info.port):
+                    instance_found = True
                     self.host = host
-                    self.port = self.serviceInfo.port
+                    self.port = self.service_info.port
                     break
             retries += 1
 
-        if not instanceFound:
+        if not instance_found:
             self.host = None  # this might be redundant since both should be None anyway
             self.port = None
 
-        return instanceFound
+        return instance_found
 
-    def connectSpcmInstance(self, host: str = None, port: int = None, serviceID: int = None):
+    def connect_spcm_instance(self, host: str = None, port: int = None, service_id: int = None):
         if (host is None and port is not None) or (host is not None and port is None):
             raise ValueError("Arguments host and port must be provided or both must be None.")
 
         if host is None:  # when host is port is implicitly None as well
             # when self.host is None self.port is implicitly None as well (see constructor)
             if self.host is None:
-                if not self.findSpcmInstance(serviceID):
-                    if serviceID is None:
+                if not self.find_spcm_instance(service_id):
+                    if service_id is None:
                         raise ValueError("Default instance (ID 1) not found. A discoverable ID, "
                                          "host and port, or self.host and self.port must be "
                                          "provided.")
                     else:
-                        raise ValueError(f"Instance with ID {serviceID} not found. A discoverable "
-                                         "ID, host and port, or self.host and self.port must be "
+                        raise ValueError(f"Instance with ID {service_id} not found. A discoverable"
+                                         " ID, host and port, or self.host and self.port must be "
                                          "provided.")
             host = self.host
             port = self.port
@@ -195,28 +195,28 @@ class BHConnect():
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
 
-        self.privateKey = RSA.generate(2048)
-        self.privateKeySize = self.privateKey.size_in_bytes()
-        self.publicKey = self.privateKey.public_key()
+        self.private_key = RSA.generate(2048)
+        self.private_key_size = self.private_key.size_in_bytes()
+        self.public_key = self.private_key.public_key()
 
-        appDataDir = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect"
-        Path(appDataDir).mkdir(parents=True, exist_ok=True)
-        with open(f"{appDataDir}/cli_private.pem", "wb") as f:
-            f.write(self.privateKey.export_key())
-        with open(f"{appDataDir}/send_cli_public.pem", "wb") as f:
-            f.write(self.publicKey.export_key())
-        self.sock.sendall(self.publicKey.export_key())
-        encData = self.sock.recv(4096)
-        data = self.__decrypt_msg(encData)
-        with open(f"{appDataDir}/svr_public.pem", "wb") as f:
+        app_data_dir = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect"
+        Path(app_data_dir).mkdir(parents=True, exist_ok=True)
+        with open(f"{app_data_dir}/cli_private.pem", "wb") as f:
+            f.write(self.private_key.export_key())
+        with open(f"{app_data_dir}/send_cli_public.pem", "wb") as f:
+            f.write(self.public_key.export_key())
+        self.sock.sendall(self.public_key.export_key())
+        enc_data = self.sock.recv(4096)
+        data = self.__decrypt_msg(enc_data)
+        with open(f"{app_data_dir}/svr_public.pem", "wb") as f:
             f.write(data)
-        self.serverPublicKey = RSA.import_key(data)
+        self.server_public_key = RSA.import_key(data)
         return self.command("Version:number")
 
-    def disconnectSpcmInstance(self):
+    def disconnect_spcm_instance(self):
         self.sock.close()
 
-    def shutdownSpcmInstance(self):
+    def shutdown_spcm_instance(self):
         self.__send(bytearray([0xFE]))
 
     def command(self, command) -> str:
@@ -236,39 +236,40 @@ class BHConnect():
         else:
             raise ValueError(f'SPCM responded with:"{answer}"')
 
-    def getImage(self, window=1, cycle=1, imageType: IMAGE_TYPES = "1stMoment"):
-        fileReceiveServer = socketserver.TCPServer(('', 0), _ImageReceiveHandler,
-                                                   bind_and_activate=True)
-        # serverThread = threading.Thread(target=fileReceiveServer.serve_forever)
-        # serverThread.start()
+    def get_image(self, window=1, cycle=1, image_type: IMAGE_TYPES = "1stMoment"):
+        file_receive_server = socketserver.TCPServer(('', 0), _ImageReceiveHandler,
+                                                     bind_and_activate=True)
+        # server_thread = threading.Thread(target=file_receive_server.serve_forever)
+        # server_thread.start()
 
-        port = fileReceiveServer.server_address[1]
-        if imageType == "Fit":
-            self.command(f"getData:fitimage,{port},tiff,{window},{cycle}")
-        elif imageType == "Fitted":
-            self.command(f"getData:fittedimage,{port},tiff,{window},{cycle}")
+        port = file_receive_server.server_address[1]
+        if image_type == "Fit":
+            self.command(f"get_data:fitimage,{port},tiff,{window},{cycle}")
+        elif image_type == "Fitted":
+            self.command(f"get_data:fittedimage,{port},tiff,{window},{cycle}")
         else:
-            self.command(f"getData:image,{port},tiff,{window},{cycle}")
-        fileReceiveServer.handle_request()
-        return requestHandlerQueue.get()
-        # fileReceiveServer.shutdown() # stringCommand is waiting for the response which itself is
+            self.command(f"get_data:image,{port},tiff,{window},{cycle}")
+        file_receive_server.handle_request()
+        return request_handler_queue.get()
+        # file_receive_server.shutdown() # string_command is waiting for the response which itself
+        # is
         # send after the image transfer is done therefore the server can be shut down
         # print(filename, end='', flush=True)
 
-    def getTrace(self, traceType=11, traceNumber=1):
-        fileReceiveServer = socketserver.TCPServer(('', 0), _TraceReceiveHandler,
-                                                   bind_and_activate=True)
-        # serverThread = threading.Thread(target=fileReceiveServer.serve_forever)
-        # serverThread.start()
+    def get_trace(self, trace_type=11, trace_number=1):
+        file_receive_server = socketserver.TCPServer(('', 0), _TraceReceiveHandler,
+                                                     bind_and_activate=True)
+        # server_thread = threading.Thread(target=file_receive_server.serve_forever)
+        # server_thread.start()
 
         # IPAddr = socket.gethostbyname(socket.gethostname())
 
-        port = fileReceiveServer.server_address[1]
-        self.command(f"getData:trace,{port},imagedecay,{traceNumber-1}")
-        fileReceiveServer.handle_request()
-        return requestHandlerQueue.get()
+        port = file_receive_server.server_address[1]
+        self.command(f"get_data:trace,{port},imagedecay,{trace_number-1}")
+        file_receive_server.handle_request()
+        return request_handler_queue.get()
 
-    def setImageSize(self, width, height):
+    def set_image_size(self, width, height):
         self.command("pressmenu:systemparameter")
         self.command(f"setparameter:pixelx,{width}")
         self.command(f"setparameter:pixely,{height}")

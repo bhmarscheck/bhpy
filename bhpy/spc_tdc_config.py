@@ -31,31 +31,31 @@ class SpcQcX04Conf():
 
     DELTA_TIME_MODE = "Δt"
 
-    def __init__(self, configPath: str = default_path) -> None:
-        SpcQcX04Conf.default_path = configPath
+    def __init__(self, config_path: str = default_path) -> None:
+        SpcQcX04Conf.default_path = config_path
         self.selectedCard = '1'
         self.restore_defaults()
-        self.load_conf(configPath)
+        self.load_conf(config_path)
 
-    def load_conf(self, confPath=None) -> None:
-        if confPath is None:
-            confPath = self.default_path
+    def load_conf(self, conf_path=None) -> None:
+        if conf_path is None:
+            conf_path = self.default_path
         try:
-            with open(confPath, 'r', encoding='utf8') as f:
-                jsonConf = json.load(f)
-                for name in jsonConf:
-                    setattr(self, name, jsonConf[name])
+            with open(conf_path, 'r', encoding='utf8') as f:
+                json_conf = json.load(f)
+                for name in json_conf:
+                    setattr(self, name, json_conf[name])
         except FileNotFoundError:
-            self.write_conf(confPath)
+            self.write_conf(conf_path)
 
-    def write_conf(self, confPath=None) -> None:
-        if confPath is None:
-            confPath = self.default_path
-        confDict = self.__dict__
-        confDict.pop('default_path', None)
-        Path(confPath).parent.mkdir(parents=True, exist_ok=True)
-        with open(confPath, 'w', encoding='utf8') as f:
-            json.dump(confDict, f, indent=2, sort_keys=True, default=str, ensure_ascii=False)
+    def write_conf(self, conf_path=None) -> None:
+        if conf_path is None:
+            conf_path = self.default_path
+        conf_dict = self.__dict__
+        conf_dict.pop('default_path', None)
+        Path(conf_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(conf_path, 'w', encoding='utf8') as f:
+            json.dump(conf_dict, f, indent=2, sort_keys=True, default=str, ensure_ascii=False)
 
     def restore_config(self) -> None:
         '''Resets the Hardware settings.
