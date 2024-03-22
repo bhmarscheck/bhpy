@@ -1105,9 +1105,9 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
 
 
 def main():
-    parser = argparse.Argument_parser(prog="SPC-QC-X04 DLL Wrapper", description="SPC-QC-X04 dll "
-                                      "wrapper that provides python bindings to use Becker&Hickls'"
-                                      " SPC-QC-X04 hardware through the dll")
+    parser = argparse.ArgumentParser(prog="SPC-QC-X04 DLL Wrapper", description="SPC-QC-X04 dll "
+                                     "wrapper that provides python bindings to use Becker&Hickls' "
+                                     "SPC-QC-X04 hardware through the dll")
     parser.add_argument('dll_path', nargs='?', default=None)
 
     card_x04 = SpcQcX04(dll_path="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_x04_dbg.dll")
