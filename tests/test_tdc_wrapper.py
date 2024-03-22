@@ -5,7 +5,7 @@ import subprocess
 skip_test = True
 
 ''' Comment out the next line to skip tests during test development '''
-skip_test = False
+# skip_test = False
 
 skip_x04 = False
 skip_x08 = False
@@ -13,12 +13,12 @@ skip_pms = False
 skip_pep_check = False
 
 
-if (skip_test):
+if skip_test:
     ''' Comment out the test groups that are not to be skipped '''
     # skip_x04 = True
     skip_x08 = True
     skip_pms = True
-    # skip_pep_check = True
+    skip_pep_check = True
 
 
 class Constants:
@@ -244,6 +244,9 @@ class Test_X04:  # noqa
             assert self.card_x04.marker_enables[name]
             self.card_x04.marker_enables = 1 << i
             assert self.card_x04.marker_enables[name]
+    
+    def test_hierweiter(self):
+        assert "weiter mit den restilchen" == "properties der x04"
 
 
 @pytest.mark.skipif(skip_pms, reason="Test Development")
