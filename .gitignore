@@ -130,3 +130,5 @@ dmypy.json
 
 *.code-workspace
 releaseGuide.py
+pyVenv/bhpy/*
+!pyVenv/bhpy/requirements.txt
