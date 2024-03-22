@@ -7,8 +7,8 @@ def pep_check():
     with open("flake8_results.txt", "w") as f:
         '''subprocess.call(('py -m flake8 --exclude tests/*.py --max-line-length 99'),
         cwd="C:/Users/enzo/BH/bhpy", stdout=f)'''
-        subprocess.call(('py -m flake8 --max-line-length 99'), cwd="C:/Users/enzo/BH/bhpy",
-                        stdout=f)
+        subprocess.call(('py -m flake8 --exclude pyVenv/* --max-line-length 99'),
+                        cwd="C:/Users/enzo/BH/bhpy", stdout=f)
     pass
     with open("flake8_results.txt", "r") as f:
         filepath = os.path.realpath(f.name)
