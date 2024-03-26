@@ -6,18 +6,20 @@ build-backend = "hatchling.build"
 only-include = ["bhpy", "dll"]
 
 [tool.hatch.build.targets.wheel.sources]
-"bhpy" = ""
-"dll" = "dll"
+"bhpy" = "bhpy"
+"dll" = "bhpy/dll"
 
 [project]
 name = "bhpy"
-version = "2.1.0"
+version = "3.0.0"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]
 dependencies = [
-  "numpy >= 1.24.2, <2",
-  "appdirs >= 1.4.4, <2"
+  "appdirs >= 1.4.4, <2",
+  "numpy >= 1.26.4, <2",
+  "pycryptodome >= 3.20.0, <4",
+  "zeroconf >= 0.131.0"
 ]
 description = "Python bindings to use Becker & Hickls' hardware control dll and API"
 readme = "README.md"
@@ -43,4 +45,4 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://www.becker-hickl.com/products/bhpy"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
-"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v2.1.0/bhpy-v2.1.0.tar.gz"
+"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v3.0.0/bhpy-v3.0.0.tar.gz"

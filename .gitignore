@@ -132,3 +132,4 @@ dmypy.json
 releaseGuide.py
 pyVenv/bhpy/*
 !pyVenv/bhpy/requirements.txt
+pyVenv/packageRequireCheck/
