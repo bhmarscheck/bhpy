@@ -35,7 +35,7 @@ class TdcLiterals:
     MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
     _marker_to_int = {"pixel": 0, "line": 1, "frame": 2, "marker3": 3}
 
-    POLARITIES = Literal["Falling", "Rising"]
+    POLARITIES = Literal["Falling", "Rising", 0, 1]
     _polarities_to_int = {"Falling": 0, "Rising": 1}
     _polarities = {"0": "Falling", "1": "Rising"}
 
@@ -354,7 +354,7 @@ class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
         self.__get_input_threshold.restype = c_float
 
         self.__get_input_thresholds = self.__dll.get_input_thresholds
-        self.__get_input_thresholds.argtypes = [c_uint8]
+        self.__get_input_thresholds.argtypes = [POINTER(c_float)]
         self.__get_input_thresholds.restype = c_int16
 
         self.__get_max_trigger_count = self.__dll.get_max_trigger_count
@@ -415,18 +415,27 @@ class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
             self.__write_serial_number.restype = c_int16
 
     @property
-    def polarities(self):
+    def channel_polarities(self):
         polarities = self.__get_channel_polarities()
         # so first in list end up in leas significant bit
         return list(reversed([TdcLiterals._polarities[digit] for digit in
                               format(polarities, f'0{self.no_of_channels}b')]))
 
-    # TODO remove empty lines between property and setter
-
-    @polarities.setter
-    def polarities(self, values: list[TdcLiterals.POLARITIES | int]
-                   | tuple[int, TdcLiterals.POLARITIES | int]):
-        if type(values) is list:
+    @channel_polarities.setter
+    def channel_polarities(self, values: list[TdcLiterals.POLARITIES | int]
+                           | tuple[int, TdcLiterals.POLARITIES | int]):
+        if type(values) is tuple:
+            channel, value = values
+            if value in typing.get_args(TdcLiterals.POLARITIES):
+                if type(value) is str:
+                    value = TdcLiterals._polarities_to_int[value]
+            else:
+                raise ValueError(f"{[value]} not part of {TdcLiterals.POLARITIES}")
+            self.__set_channel_polarity(c_uint8(channel), c_uint8(value))
+            return
+        elif type(values) is int:
+            values_arg = values
+        elif type(values) is list:
             values = [TdcLiterals._polarities_to_int[x]
                       if (type(x) is str and x in typing.get_args(TdcLiterals.POLARITIES))
                       else x for x in values]
@@ -437,22 +446,16 @@ class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
             output = 0
             for bit in reversed(values):  # so first in list end up in leas significant bit
                 output = output * 2 + bit
-            values_arg = c_uint8(output)
-            self.__set_channel_polarities(values_arg)
+            values_arg = output
         else:
-            channel, value = values
-            if value in typing.get_args(TdcLiterals.POLARITIES):
-                if str == type(value):
-                    value = TdcLiterals._polarities_to_int[value]
-            else:
-                raise ValueError(f"{[value]} not part of {TdcLiterals.POLARITIES}")
-            self.__set_channel_polarity(c_uint8(channel), c_uint8(value))
+            raise ValueError()
+        self.__set_channel_polarities(c_uint8(values_arg))
 
     @property
     def input_thresholds(self):
         thresholds = (c_float * self.no_of_channels)()
         self.__get_input_thresholds(cast(thresholds, POINTER(c_float)))
-        return thresholds[:]
+        return [x if x >= -500 else None for x in thresholds[:]]
 
     @input_thresholds.setter
     def input_thresholds(self, values: list[float] | tuple[int, float]):
@@ -469,6 +472,7 @@ class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
 
     @max_trigger_count.setter
     def max_trigger_count(self, count: int):
+        count = max(0, min((4294967295), count))  # 2**32
         self.__set_max_trigger_count(c_uint32(count))
 
     @property
@@ -755,7 +759,8 @@ class SpcQcX04(__EventStream32Bit):
 
     @marker_enables.setter  # TODO add bool to turn all on/off
     def marker_enables(self, enables:
-                       Markers | list[bool, int] | int | tuple[TdcLiterals.MARKER, bool | int]):
+                       Markers | list[bool, int] | int
+                       | tuple[TdcLiterals.MARKER | int, bool | int]):
         if type(enables) is tuple:
             marker, enable = enables
             if type(marker) is str:
@@ -778,32 +783,40 @@ class SpcQcX04(__EventStream32Bit):
 
     @property
     def marker_polarities(self):
-        polarities = self.__get_marker_polarities()
-        return list(reversed([TdcLiterals._polarities[digit] for digit in
-                              format(polarities, f'0{self.no_of_channels}b')]))
+        polarities = format(self.__get_marker_polarities(), f'0{self.no_of_channels}b')
+        return Markers(pixel=TdcLiterals._polarities[polarities[3]],
+                       line=TdcLiterals._polarities[polarities[2]],
+                       frame=TdcLiterals._polarities[polarities[1]],
+                       marker3=TdcLiterals._polarities[polarities[0]])
 
     @marker_polarities.setter
     def marker_polarities(self,
-                          polarities: Markers | list[int] | int | tuple[TdcLiterals.MARKER, int]):
+                          polarities: Markers | list[int] | int
+                          | tuple[TdcLiterals.MARKER | int, TdcLiterals.POLARITIES | int]):
         if type(polarities) is tuple:
             marker, polarity = polarities
             if type(marker) is str:
                 marker = TdcLiterals._marker_to_int[marker]
+            if type(polarity) is str:
+                polarity = TdcLiterals._polarities_to_int[polarity]
             self.__set_marker_polarity(c_uint8(marker), c_bool(polarity))
             return
         elif type(polarities) is int:
             polarities_arg = polarities
-        elif type(polarities) is Markers:
+        elif type(polarities) is dict:
             polarities = [polarities["pixel"], polarities["line"], polarities["frame"],
                           polarities["marker3"]]
         elif type(polarities) is not list:
             raise ValueError()
 
         if type(polarities) is list:
+            for i, item in enumerate(polarities):
+                if type(item) is str:
+                    polarities[i] = TdcLiterals._polarities_to_int[item]
             polarities_arg = 0
             for bit in reversed(polarities):  # so first in list end up in leas significant bit
                 polarities_arg = polarities_arg * 2 + 1 if bit else polarities_arg * 2
-        self.__set_marker_enables(c_uint8(polarities_arg))
+        self.__set_marker_polarities(c_uint8(polarities_arg))
 
     @property
     def marker_status(self):
@@ -835,6 +848,7 @@ class SpcQcX04(__EventStream32Bit):
             status.append("ARM")  # Module is armed
         if res & 0x20:
             status.append("HCE")  # Hardware collection timer is expired
+        return status
 
     @property
     def hardware_fifo_full(self):
@@ -866,6 +880,7 @@ class SpcQcX04(__EventStream32Bit):
 
     @routing_compensation.setter
     def routing_compensation(self, compensation_ns: int):
+        compensation_ns = max(min(compensation_ns, 65), -57)
         self.__set_routing_compensation(c_int8(compensation_ns))
 
     @property
@@ -955,11 +970,11 @@ class SpcQcX08(__8ChannelDllWrapper):
     @property
     def inputmodes(self):
         inputmodes = (c_uint8 * self.no_of_channels)()
-        self._8Channel_dll_wrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
+        self._8ChannelDllWrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
         return [self.modes_input[x] for x in inputmodes]
 
     @inputmodes.setter
-    def inputmodes(self, values: list[INPUT_MODES] | list[int] | tuple[int, INPUT_MODES | int]):
+    def inputmodes(self, values: list[INPUT_MODES | int] | tuple[int, INPUT_MODES | int]):
         if type(values) is list:
             values = [
                 self.input_modes[x] if (type(x) is str and x in typing.get_args(self.INPUT_MODES))
@@ -968,7 +983,7 @@ class SpcQcX08(__8ChannelDllWrapper):
             if bad_args:
                 raise ValueError(f"{list(dict.fromkeys(bad_args))} not part of {self.INPUT_MODES}")
             values_arg = (c_uint8 * self.no_of_channels)(*values)
-            self._8Channel_dll_wrapper__set_channel_inputmodes(values_arg)
+            self._8ChannelDllWrapper__set_channel_inputmodes(values_arg)
         elif type(values) is tuple:
             channel, value = values
             if value in typing.get_args(self.INPUT_MODES):
@@ -976,7 +991,7 @@ class SpcQcX08(__8ChannelDllWrapper):
                     value = self.input_modes[value]
             else:
                 raise ValueError(f"{[value]} not part of {self.INPUT_MODES}")
-            self._8Channel_dll_wrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
+            self._8ChannelDllWrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
         else:
             raise ValueError("values must be of one of the following types: list[INPUT_MODES], "
                              "list[int], tuple[int, INPUT_MODES], tuple[int, int]", values)
@@ -989,6 +1004,8 @@ class SpcQcX08(__8ChannelDllWrapper):
 
     @sync_channel.setter
     def sync_channel(self, channel):
+        if channel < -1 or channel >= 8:
+            raise ValueError("Sync channel must be either -1(all) or 0 through 7")
         self.__set_sync_channel(c_int8(channel))
 
     def get_event_triplets_from_buffer(self, buffer: npt.NDArray[np.uint32], card_number: int,
@@ -1056,16 +1073,22 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
     @event_count_thresholds.setter
     def event_count_thresholds(self, values: list[int] | tuple[int, int]):
         if type(values) is list:
+            values = [max(1, min(127, x)) for x in values]
             values_arg = (c_uint8 * self.no_of_inputmodes)(*values)
             self.__set_event_count_thresholds(cast(values_arg, POINTER(c_uint8)))
         else:
             channel, value = values
-            self.__set_event_count_threshold(c_uint8(channel), c_uint8(value))
+            value = max(1, min(127, value))
+            result = self.__set_event_count_threshold(c_uint8(channel), c_uint8(value))
+            if result == -1:
+                raise ValueError(f"Channel({channel}) out of range [0-3]")
+            elif result == -2:
+                raise RuntimeError("Hardware register could not be set")
 
     @property
     def inputmodes(self):
         inputmodes = (c_uint8 * self.no_of_inputmodes)()  # TODO add arg to var name
-        self._8Channel_dll_wrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
+        self._8ChannelDllWrapper__get_channel_inputmodes(cast(inputmodes, POINTER(c_uint8)))
         return [self.modes_input[x] for x in inputmodes]
 
     @inputmodes.setter
@@ -1078,9 +1101,9 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
             bad_args = [x for x in values if (x not in typing.get_args(self.INPUT_MODES))]
             if bad_args:
                 raise ValueError(f"{list(dict.fromkeys(bad_args))} not part of "
-                                 "{self.INPUT_MODES}")
+                                 f"{self.INPUT_MODES}")
             values_arg = (c_uint8 * self.no_of_inputmodes)(*values)
-            self._8Channel_dll_wrapper__set_channel_inputmodes(values_arg)
+            self._8ChannelDllWrapper__set_channel_inputmodes(values_arg)
 # TODO check for proper arg passing cast(values_arg, POINTER(c_uint8))
         else:
             channel, value = values
@@ -1089,7 +1112,7 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
                     value = self.input_modes[value]
             else:
                 raise ValueError(f"{[value]} not part of {self.INPUT_MODES}")
-            self._8Channel_dll_wrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
+            self._8ChannelDllWrapper__set_channel_inputmode(c_uint8(channel), c_uint8(value))
 
     def set_measurement_configuration(self, operation_mode, time_range, front_clipping, resolution,
                                       bin_size):
