@@ -2,6 +2,7 @@ import pytest
 import bhpy as bh
 import subprocess
 
+
 skip_test = True
 
 ''' Comment out the next line to skip tests during test development '''
@@ -22,12 +23,13 @@ if skip_test:
 
 
 class Constants:
-    version = [2, 3, 0]
+    version = [2, 3, 1]
 
 
 @pytest.mark.skipif(skip_x08, reason="Test development")
 class Test_X08:  # noqa
-    card_x08 = bh.SpcQcX08(dll_path="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X08.dll")
+    # card_x08 = bh.SpcQcX08(dll_path="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X08.dll")
+    card_x08 = bh.SpcQcX08()
 
     def test_init_x08(self):
         assert [self.card_x08.version["major"], self.card_x08.version["minor"],
@@ -211,7 +213,8 @@ class Test_X08:  # noqa
 
 @pytest.mark.skipif(skip_x04, reason="Test Development")
 class Test_X04:  # noqa
-    card_x04 = bh.SpcQcX04("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X04.dll")
+    # card_x04 = bh.SpcQcX04("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_X04.dll")
+    card_x04 = bh.SpcQcX04()
 
     def test_init_x04(self):
         assert [self.card_x04.version["major"], self.card_x04.version["minor"],
@@ -458,7 +461,8 @@ class Test_X04:  # noqa
 
 @pytest.mark.skipif(skip_pms, reason="Test Development")
 class Test_Pms:  # noqa
-    card_pms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
+    # card_pms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
+    card_pms = bh.Pms800()
 
     def test_init_pms(self):
         assert [self.card_pms.version["major"], self.card_pms.version["minor"],
