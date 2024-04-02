@@ -244,11 +244,11 @@ class BHConnect():
 
         port = file_receive_server.server_address[1]
         if image_type == "Fit":
-            self.command(f"get_data:fitimage,{port},tiff,{window},{cycle}")
+            self.command(f"getData:fitimage,{port},tiff,{window},{cycle}")
         elif image_type == "Fitted":
-            self.command(f"get_data:fittedimage,{port},tiff,{window},{cycle}")
+            self.command(f"getData:fittedimage,{port},tiff,{window},{cycle}")
         else:
-            self.command(f"get_data:image,{port},tiff,{window},{cycle}")
+            self.command(f"getData:image,{port},tiff,{window},{cycle}")
         file_receive_server.handle_request()
         return request_handler_queue.get()
         # file_receive_server.shutdown() # string_command is waiting for the response which itself
@@ -265,7 +265,7 @@ class BHConnect():
         # IPAddr = socket.gethostbyname(socket.gethostname())
 
         port = file_receive_server.server_address[1]
-        self.command(f"get_data:trace,{port},imagedecay,{trace_number-1}")
+        self.command(f"getData:trace,{port},imagedecay,{trace_number-1}")
         file_receive_server.handle_request()
         return request_handler_queue.get()
 

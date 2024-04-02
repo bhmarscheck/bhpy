@@ -4,7 +4,6 @@ log = logging.getLogger(__name__)
 try:
     from ctypes import (c_int16, create_string_buffer, Structure, CDLL, c_char_p, c_uint8,
                         c_void_p, c_char)
-    import argparse
     from pathlib import Path
     import re
     import sys
@@ -18,10 +17,6 @@ class HardwareScanResult(Structure):
     _fields_ = [("friendlyName", c_char * 32),
                 ("serialNumber", c_char * 32),
                 ("firmwareVersion", c_char * 32)]
-
-
-class HardwareError(IOError):
-    pass
 
 
 class BHDeviceScan:
@@ -80,21 +75,3 @@ class BHDeviceScan:
                 else:
                     break
         return serial_number
-
-
-def main():
-    parser = argparse.ArgumentParser(prog="BH Device Scan DLL Wrapper",
-                                     description="BH device scanning dll wrapper that provides "
-                                     "python bindings to scan the system for all present BH "
-                                     "devices, their serial number and firmware version.")
-    parser.add_argument('dll_path', nargs='?', default=None)
-
-    args = parser.parse_args()
-
-    bh_scan = BHDeviceScan(args.dll_path)
-    print(bh_scan.bh_scan_hardware())
-    input("press enter...")
-
-
-if __name__ == '__main__':
-    main()
