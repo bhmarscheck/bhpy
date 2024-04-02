@@ -11,7 +11,7 @@ only-include = ["bhpy", "dll"]
 
 [project]
 name = "bhpy"
-version = "3.0.0"
+version = "3.1.0"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]

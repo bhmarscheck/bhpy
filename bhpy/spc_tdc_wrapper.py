@@ -6,7 +6,6 @@ try:
                         c_char_p, c_uint8, c_uint16, c_uint32, c_bool, c_double, c_int8, c_float,
                         c_uint64, c_int64, c_char, c_int32)
     from pathlib import Path
-    import argparse
     import numpy as np
     import numpy.typing as npt
     import re
@@ -23,10 +22,6 @@ class ModuleInit(Structure):
     _fields_ = [("device_nr", c_uint8),
                 ("initialized", c_bool),
                 ("serial_nr_str", c_char * 12)]
-
-
-class HardwareError(IOError):  # TODO this is meh
-    pass
 
 
 class TdcLiterals:
@@ -246,8 +241,8 @@ class __TdcDllWrapper:
     @hardware_countdown_time.setter
     def hardware_countdown_time(self, ns_time):
         if self.__set_hardware_countdown_time(c_double(ns_time)) < 0:
-            raise HardwareError("DLL call set_hardware_countdown_time() returned with error, more "
-                                f"details: {self.log_path}")
+            raise RuntimeError("DLL call set_hardware_countdown_time() returned with error, more "
+                               f"details: {self.log_path}")
 
     @property
     def rates(self) -> list[int]:
@@ -1125,19 +1120,3 @@ class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
                                                    byref(resolution_arg), byref(bin_size_arg))
         return (ret, time_range_arg.value, front_clipping_arg.value, resolution_arg.value,
                 bin_size_arg.value)
-
-
-def main():
-    parser = argparse.ArgumentParser(prog="SPC-QC-X04 DLL Wrapper", description="SPC-QC-X04 dll "
-                                     "wrapper that provides python bindings to use Becker&Hickls' "
-                                     "SPC-QC-X04 hardware through the dll")
-    parser.add_argument('dll_path', nargs='?', default=None)
-
-    card_x04 = SpcQcX04(dll_path="c:/Users/enzo/BH/SPC-QC-104/CVI/Build/spc_qc_x04_dbg.dll")
-    card_x04.init([0], emulate_hardware=True)
-    print(card_x04.marker_enables)
-    print(list(card_x04.marker_enables))
-
-
-if __name__ == '__main__':
-    main()
