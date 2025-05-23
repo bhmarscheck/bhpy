@@ -5,6 +5,7 @@ try:
     from ctypes import create_string_buffer, CDLL, POINTER, c_char_p, c_float, c_int32, c_uint32
     from pathlib import Path
     from typing import Literal
+    from time import sleep
     import sys
 except ModuleNotFoundError as err:
     # Error handling
@@ -20,8 +21,11 @@ class LVConnectQC008:
                            "ShowMCS", "StartMeasurement", "StopMeasurement"]
     MEASUREMENT_STATUS = Literal["repeating", "measuring", "noData", "DataAvailable"]
 
-    def __init__(self, dll_path: Path | str | None = None, machine_name: str | None = None,
-                 default_timeout_s: int = 3, error_string_buffer_len: int = 512,
+    def __init__(self,
+                 dll_path: Path | str | None = None,
+                 machine_name: str | None = None,
+                 default_timeout_s: int = 3,
+                 error_string_buffer_len: int = 512,
                  result_string_buffer_len: int = 512):
         if dll_path is None:
             dll_path = Path(sys.modules["bhpy"].__file__).parent / Path("dll/ControlQC008.dll")
@@ -38,19 +42,19 @@ class LVConnectQC008:
         self.__Dll_ControlQC008.restype = c_int32
 
         if machine_name is None:
-            self.machine_name = "localhost".encode('utf-8')
+            self._machine_name = "localhost".encode('utf-8')
         else:
-            self.machine_name = machine_name.encode('utf-8')
+            self._machine_name = machine_name.encode('utf-8')
 
-        self.cmd_timeout_s = default_timeout_s
-        self.errString = create_string_buffer(error_string_buffer_len)
-        self.resultString = create_string_buffer(result_string_buffer_len)
+        self._cmd_timeout_s = default_timeout_s
+        self._error_str = create_string_buffer(error_string_buffer_len)
+        self._result_str = create_string_buffer(result_string_buffer_len)
         self._rates = (c_float * 8)()
 
-    def _command(self, command: str, command_arg: str = None,
+    def _command(self, command: INSTRUCTIONS | str, command_arg: str = None,
                  machine_name: str | None = None) -> tuple[str, list[int]]:
         if machine_name is None:
-            machine_name = self.machine_name
+            machine_name = self._machine_name
         else:
             machine_name = machine_name.encode('utf-8')
 
@@ -59,14 +63,14 @@ class LVConnectQC008:
         else:
             cmd = f"{command} {command_arg}"
 
-        res = self.__Dll_ControlQC008(cmd.encode('utf-8'), machine_name, self.cmd_timeout_s,
-                                      self.errString, self.resultString, self._rates,
-                                      len(self.errString), len(self.resultString),
+        res = self.__Dll_ControlQC008(cmd.encode('utf-8'), machine_name, self._cmd_timeout_s,
+                                      self._error_str, self._result_str, self._rates,
+                                      len(self._error_str), len(self._result_str),
                                       len(self._rates))
         if 0 == res:
-            return self.resultString.value.decode().split(" ")[0], list(self._rates)
+            return self._result_str.value.decode().split(" ")[0], list(self._rates)
         else:
-            raise ChildProcessError(f"{self.errString.value.decode()} ({res})")
+            raise ChildProcessError(f"{self._error_str.value.decode()} ({res})")
 
     def command(self, command: INSTRUCTIONS):
         self._command(command=command)
@@ -77,11 +81,11 @@ class LVConnectQC008:
 
     @property
     def firmware_version(self) -> str:
-        return self._command(command="GetGAPEvents")[0]
+        return self._command(command="GetFW-Version")[0]
 
     @property
     def gap_events(self) -> int:
-        return int(self._command(command="GetFW-Version")[0])
+        return int(self._command(command="GetGAPEvents")[0])
 
     @property
     def initialized(self) -> bool:
@@ -201,3 +205,219 @@ class LVConnectQC008:
 
     def set_time_range(self, range_s: float):
         self._command("TimeRange", f"{range_s:.9E}")
+
+
+class LVConnectBDU:
+    '''Wrapper class for interfacing with a BDU laser via the BDU application.
+
+    Methods:
+     - command(command: INSTRUCTIONS | str, command_arg: str = None) -> str
+     - close() -> bool
+
+    Properties:
+     - arming
+     - power
+     - frequency
+
+    Read only properties:
+     - firmware_version
+     - emission
+     - serial_number
+     - wavelength
+     - frequencies
+     - connected
+
+    Note that reading or writing any property as well as sending any command
+    without an instance of the BDU application will raise a ChildProcessError.
+    '''
+
+    INSTRUCTIONS = Literal['Armed', 'GetArmed', 'Power', 'GetPower', 'Frequ',
+                           'GetFreq', 'GetFreqStrings', 'GetEmissionStatus',
+                           'GetSN', 'GetWL', 'GetFwVersion', 'Stop']
+
+    def __init__(self,
+                 dll_path: Path | str | None = None,
+                 machine_name: str | None = None,
+                 default_timeout_s: int = 3,
+                 error_string_buffer_len: int = 512,
+                 result_string_buffer_len: int = 512):
+        if dll_path is None:
+            dll_path = Path(sys.modules['bhpy'].__file__).parent / Path('dll/ControlBDU.dll')
+        else:
+            dll_path = Path(dll_path)
+
+        self._file_saving_path = Path('./')
+
+        self.__dll = CDLL(str(dll_path.absolute()))
+        self.__Dll_ControlBDU = self.__dll.dll_ControlBDU
+
+        self.__Dll_ControlBDU.argtypes = [c_char_p, c_char_p, c_uint32, c_char_p,
+                                          c_char_p, c_int32, c_int32]
+        self.__Dll_ControlBDU.restype = c_int32
+
+        if machine_name is None:
+            self._machine_name = 'localhost'.encode('utf-8')
+        else:
+            self._machine_name = machine_name.encode('utf-8')
+
+        self._cmd_timeout_s = default_timeout_s
+        self._error_str = create_string_buffer(error_string_buffer_len)
+        self._result_str = create_string_buffer(result_string_buffer_len)
+
+    def _command(self, command: INSTRUCTIONS | str, command_arg: str = None,
+                 machine_name: str | None = None) -> str | bool:
+        if machine_name is None:
+            machine_name = self._machine_name
+        else:
+            machine_name = machine_name.encode('utf-8')
+
+        if command_arg is None:
+            cmd = command
+        else:
+            cmd = f'{command} {command_arg}'
+
+        while True:
+            res = self.__Dll_ControlBDU(cmd.encode('utf-8'), machine_name, self._cmd_timeout_s,
+                                        self._error_str, self._result_str, len(self._error_str),
+                                        len(self._result_str))
+            if cmd == 'Stop':  # call might not even return since program kills itself
+                return True
+            if res == 0 or res == 1:
+                if 'Still loading' not in self._result_str.value.decode():
+                    return self._result_str.value.decode().split(' ')[0]
+                sleep(0.5)
+            elif res == 56:  # lv connect port not open yet
+                sleep(0.1)
+            else:
+                if 'Still loading' not in self._result_str.value.decode():
+                    raise ChildProcessError(f'{self._error_str.value.decode().lstrip()} ({res})')
+                sleep(0.5)
+
+    def command(self, command: INSTRUCTIONS | str, command_arg: str = None) -> str:
+        '''Sends a command and optional arguments to the connected BDU
+        application.
+
+        This can be used to facilitate functionalities/commands that are
+        not yet wrapped by this library.
+
+        As long as the application is still loading the command is blocking.
+        '''
+        return self._command(command=command, command_arg=command_arg)
+
+    @property
+    def firmware_version(self) -> str:
+        '''Returns the firmware version string of the connected BDU'''
+        response = self._command(command='GetFwVersion')
+        if response == '':
+            return None
+        return response
+
+    @property
+    def emission(self) -> bool:
+        '''Returns the emission state of the connected BDU.
+
+        External factors like laser interlock or external trigger signals
+        can result in a false positive. Meaning the emission state merely
+        indicates the possibility on part of the software for the laser
+        actually emitting light.
+        '''
+        state = self._command(command='GetEmissionStatus')
+        if state == 'LaserON':
+            return True
+        elif state == 'LaserOFF':
+            return False
+        else:
+            raise ChildProcessError(f'Unexpected state: {state}')
+
+    @property
+    def arming(self) -> bool:
+        '''Sets/Returns the state of the arming control in the BDU application.
+
+        When enabled the laser and the laser power is set to greater than
+        0.0 the laser might emit light given that external conditions do
+        not prevent the BDU from doing so.
+        '''
+        state = self._command(command='GetArmed')
+        if state == 'On':
+            return True
+        elif state == 'Off':
+            return False
+        else:
+            raise ChildProcessError(f'Unexpected arming state: {state}')
+
+    @arming.setter
+    def arming(self, enable: bool):
+        self._command('Armed', 'On' if enable else 'Off')
+
+    @property
+    def power(self) -> float:
+        '''Sets/Returns the current laser power of the connected BDU laser
+        in %.
+
+        Raises a ValueError if set to something outside of the allowed range
+        from 0.0 to 100.0 [%].
+        '''
+        return float(self._command(command='GetPower').replace(',', '.'))
+
+    @power.setter
+    def power(self, percentage: float):
+        if percentage < 0.0 or percentage > 100.0:
+            raise ValueError('Power level must be in the range 0.0 to 100.0 [%]')
+        self._command('Power', percentage)
+
+    @property
+    def serial_number(self) -> str | None:
+        '''Returns the serial number string of the connected BDU.'''
+        response = self._command(command='GetSN')
+        if response == 'NC' or response == '':
+            return None
+        return response
+
+    @property
+    def wavelength(self) -> float | None:
+        '''Returns the wavelength of the connected BDU in nm.'''
+        response = self._command(command='GetWL')
+        try:
+            return float(response.replace(',', '.'))
+        except ValueError:
+            if response == '':
+                return None
+            raise
+
+    @property
+    def frequencies(self) -> list[str]:
+        '''Returns the pulse frequency names (if present including CW) of
+        the connected BDU laser as a list of strings.
+
+        These names are the possible names that can be used to set the
+        frequency property.'''
+        return self._command(command='GetFreqStrings').split(';')
+
+    @property
+    def frequency(self) -> str:
+        '''Sets/Returns the current pulse frequency of the connected BDU
+        laser.
+
+        Raises a ValueError if the given frequency name is not one of the
+        puls frequency names of the connected BDU laser.'''
+        return self._command(command='GetFreq')
+
+    @frequency.setter
+    def frequency(self, frequency_name: str):
+        if frequency_name not in self.frequencies:
+            raise ValueError(f'Frequency must be one of {self.frequencies}')
+        self._command('Frequ', frequency_name)
+
+    @property
+    def connected(self) -> bool:
+        '''Returns the connection state of a BDU laser and the BDU
+        application.'''
+        if self.serial_number is None:
+            return False
+        return True
+
+    def close(self) -> bool:
+        '''Closes the BDU application.
+
+        Returns True on success.'''
+        return self._command('Stop')
