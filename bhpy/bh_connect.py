@@ -19,11 +19,25 @@ except ModuleNotFoundError as err:
     log.error(err)
     raise
 
-request_handler_queue = Queue()
+
+class CustomTCPServer(socketserver.TCPServer):
+    def __init__(self, server_address, request_handler_class,
+                 request_handler_queue, done_queue=None,
+                 bind_and_activate=True, all_windows=False,
+                 file_name=None):
+        super().__init__(server_address, request_handler_class, bind_and_activate)
+        self.file_name = file_name
+        self.all_windows = all_windows
+        self.request_handler_queue = request_handler_queue
+        self.done_queue = done_queue
 
 
 class _ImageReceiveHandler(socketserver.BaseRequestHandler):
-    def __init__(self, request, client_address, server) -> None:
+    def __init__(self, request, client_address, server: CustomTCPServer) -> None:
+        self.file_name = server.file_name
+        self.all_windows = server.all_windows
+        self.request_handler_queue: Queue = server.request_handler_queue
+        self.done_queue: Queue = server.done_queue
         super().__init__(request, client_address, server)
 
     def finish(self) -> None:
@@ -31,9 +45,20 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request.recv(1)
-        filename = self.request.recv(int.from_bytes(data)).decode()
+        if self.all_windows or self.file_name is None:
+            filename = self.request.recv(int.from_bytes(data)).decode()
+            if filename == 'EOT':
+                self.done_queue.put(True)
+                return
+        else:
+            filename = self.file_name
+            dummy_read = self.request.recv(int.from_bytes(data)).decode()
+            if dummy_read == 'EOT':
+                self.done_queue.put(True)
+                return
         image_dir = (f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect/temp/"
                      f"{filename}")
+        self.request_handler_queue.put(image_dir)
         Path(image_dir).parent.mkdir(parents=True, exist_ok=True)
         with open(image_dir, 'wb') as f:
             data = self.request.recv(4096)
@@ -43,11 +68,11 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
                     data = self.request.recv(4096)
                 except ConnectionResetError:
                     break
-        request_handler_queue.put(image_dir)
 
 
 class _TraceReceiveHandler(socketserver.BaseRequestHandler):
-    def __init__(self, request, client_address, server) -> None:
+    def __init__(self, request, client_address, server: CustomTCPServer) -> None:
+        self.request_handler_queue: Queue = server.request_handler_queue
         super().__init__(request, client_address, server)
 
     def finish(self) -> None:
@@ -64,11 +89,11 @@ class _TraceReceiveHandler(socketserver.BaseRequestHandler):
                 break
             for x in range(0, len(data), 4):
                 trace_vals.append(int.from_bytes(data[x:x+4], byteorder='little', signed=False))
-        request_handler_queue.put(trace_vals)
+        self.request_handler_queue.put(trace_vals)
 
 
 class BHConnect():
-    IMAGE_TYPES = Literal["1stMoment", "Fit", "Fitted"]
+    IMAGE_TYPES = Literal["1stMoment", "Fit", "Fitted", "TauChannel"]
 
     def __init__(self, host=None, port=None):
         self.host = host
@@ -229,36 +254,67 @@ class BHConnect():
                 try:
                     value = float(answer.strip("\x00"))
                     return value
+                except ValueError:
+                    return answer
                 except Exception as e:
-                    print(f"Adjust this to catch the specific exception {e}")
+                    print(f"Adjust this to catch the specific exception: {e}")
                     return answer
             return True
         else:
             raise ValueError(f'SPCM responded with:"{answer}"')
 
-    def get_image(self, window=1, cycle=1, image_type: IMAGE_TYPES = "1stMoment"):
-        file_receive_server = socketserver.TCPServer(('', 0), _ImageReceiveHandler,
-                                                     bind_and_activate=True)
+    def get_image(self, window=1, cycle=1, image_type: IMAGE_TYPES = "1stMoment",
+                  fit_config: tuple[str, int] = None, tau_channel: str = None):
+        file_name = None
+        all_windows = window == -1
+        request_handler_queue = Queue()
+        done_queue = Queue()
+        file_receive_server = CustomTCPServer(('', 0), _ImageReceiveHandler,
+                                              bind_and_activate=True,
+                                              file_name=file_name,
+                                              all_windows=all_windows,
+                                              request_handler_queue=request_handler_queue,
+                                              done_queue=done_queue)
         # server_thread = threading.Thread(target=file_receive_server.serve_forever)
         # server_thread.start()
 
         port = file_receive_server.server_address[1]
-        if image_type == "Fit":
-            self.command(f"getData:fitimage,{port},tiff,{window},{cycle}")
-        elif image_type == "Fitted":
-            self.command(f"getData:fittedimage,{port},tiff,{window},{cycle}")
+        if fit_config is None:
+            fit_config_cmd = ''
         else:
-            self.command(f"getData:image,{port},tiff,{window},{cycle}")
-        file_receive_server.handle_request()
-        return request_handler_queue.get()
+            fit_config_cmd = f',config,{fit_config[0]},{fit_config[1]}'
+        if all_windows:
+            window_selection = ''
+        else:
+            window_selection = f',{window},{cycle}'
+        if image_type == "Fit":
+            self.command(f"getData:fitimage,{port},tiff{window_selection}{fit_config_cmd}")
+        elif image_type == "Fitted":
+            self.command(f"getData:fittedimage,{port},tiff{window_selection}")
+        elif image_type == 'TauChannel':
+            self.command(f'getData:tauchannel,{port},tiff,{window},{tau_channel}')
+        elif image_type == 'TauChannels':
+            all_windows = True
+            response = self.command(f'getData:tauchannel,{port},tiff,{window}')
+        else:
+            self.command(f"getData:image,{port},tiff{window_selection}")
+        while done_queue.empty():
+            file_receive_server.handle_request()
+
+        response = []
+        while not request_handler_queue.empty():
+            response.append(request_handler_queue.get())
+        return response
         # file_receive_server.shutdown() # string_command is waiting for the response which itself
         # is
         # send after the image transfer is done therefore the server can be shut down
         # print(filename, end='', flush=True)
 
     def get_trace(self, trace_type=11, trace_number=1):
-        file_receive_server = socketserver.TCPServer(('', 0), _TraceReceiveHandler,
-                                                     bind_and_activate=True)
+        request_handler_queue = Queue()
+        file_receive_server = CustomTCPServer(('', 0), _TraceReceiveHandler,
+                                              bind_and_activate=True,
+                                              request_handler_queue=request_handler_queue)
         # server_thread = threading.Thread(target=file_receive_server.serve_forever)
         # server_thread.start()
 

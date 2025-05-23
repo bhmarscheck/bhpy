@@ -2,7 +2,6 @@ import pytest
 import bhpy as bh
 import subprocess
 
-
 skip_test = True
 
 ''' Comment out the next line to skip tests during test development '''
@@ -11,6 +10,7 @@ skip_test = False
 skip_x04 = False
 skip_x08 = False
 skip_pms = False
+skip_lv_bdu = False
 skip_pep_check = False
 
 
@@ -19,6 +19,7 @@ if skip_test:
     skip_x04 = True
     skip_x08 = True
     skip_pms = True
+    skip_lv_bdu = True
     skip_pep_check = True
 
 
@@ -645,6 +646,71 @@ class Test_Pms:  # noqa
             assert self.card_pms.inputmodes[i] == "Gated Input"
             self.card_pms.inputmodes = (i, 0)
             assert self.card_pms.inputmodes[i] == "Input"
+
+
+@pytest.mark.skipif(skip_lv_bdu, reason='Test Development')
+class Test_BDU:  # noqa
+    bdu = bh.LVConnectBDU("C:/Users/enzo/BH/bhpy/dll/ControlBDU.dll")
+    # bdu = bh.LVConnectBDU()
+
+    def test_app_not_running(self):
+        with pytest.raises(ChildProcessError) as e_info:
+            tmp = self.bdu.connected  # noqa
+        assert (e_info.value.args[0] == 'No running BDU Application found (-1)')
+        subprocess.Popen(["C:/Users/enzo/Documents/BDU/BDU.exe"])
+        app_running = False
+        while not app_running:
+            try:
+                tmp = self.bdu.connected  # noqa
+                app_running = True
+            except ChildProcessError:
+                pass
+
+    def test_connected(self):
+        assert self.bdu.connected is False
+
+    def test_arming(self):
+        assert self.bdu.arming is False
+        self.bdu.arming = True
+        assert self.bdu.arming is True
+
+    def test_info(self):
+        assert self.bdu.firmware_version is None
+        assert self.bdu.serial_number is None
+        assert self.bdu.wavelength is None
+
+    def test_frequencies(self):
+        assert self.bdu.frequencies == ['CW', 'Freq2', 'Freq1', 'Freq3']
+        for frequency in self.bdu.frequencies:
+            self.bdu.frequency = frequency
+            assert self.bdu.frequency == frequency
+        with pytest.raises(ValueError) as e_info:
+            self.bdu.frequency = 'NotAllowedFreqName'
+        assert (e_info.value.args[0] == f'Frequency must be one of {self.bdu.frequencies}')
+
+    def test_power(self):
+        power_values = [0.0, 0.01, 100.0, 7, 13.90, 12.34]
+        for pw in power_values:
+            self.bdu.power = pw
+            assert self.bdu.power == pw
+
+        power_values = [-1, -13.45, 100.001, 500]
+        self.bdu.power = 42.00
+        for pw in power_values:
+            with pytest.raises(ValueError) as e_info:
+                self.bdu.power = pw
+            assert self.bdu.power == 42.00
+            assert (e_info.value.args[0] == 'Power level must be in the range 0.0 to 100.0 [%]')
+
+    def test_emission(self):
+        assert self.bdu.emission is False
+
+    def test_stop(self):
+        assert self.bdu.connected is False
+        self.bdu.close()
+        with pytest.raises(ChildProcessError) as e_info:
+            tmp = self.bdu.connected  # noqa
+        assert (e_info.value.args[0] == 'No running BDU Application found (-1)')
 
 
 @pytest.mark.skipif(skip_pep_check, reason="Test Development")
