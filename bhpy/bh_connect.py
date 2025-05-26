@@ -236,6 +236,13 @@ class BHConnect():
         with open(f"{app_data_dir}/svr_public.pem", "wb") as f:
             f.write(data)
         self.server_public_key = RSA.import_key(data)
+        protocol_version_str = self.command("Version:number")
+        protocol_version = [int(x) for x in protocol_version_str.split(' ')[1].split('.')]
+        if protocol_version[0] != 2:
+            raise RuntimeError('Wrong SPCConnect protocol version ('
+                               f'{protocol_version_str}). BHConnect is suited '
+                               'for SPCConnect protocol V 2.0.0 up until, but '
+                               'not including V 3.0.0')
         return self.command("Version:number")
 
     def disconnect_spcm_instance(self):
