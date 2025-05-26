@@ -83,10 +83,10 @@ class __TdcDllWrapper:
         match = re.match(r"(\d+)\.(\d+)\.(\d+)\+([0-9a-fA-F]+)", self.version_str)
         self.version = {"major": int(match.group(1)), "minor": int(match.group(2)),
                         "patch": int(match.group(3)), "commit_iD": match.group(4)}
-        if (self.version["major"] != 2):
+        if (self.version["major"] != 4):
             raise RuntimeError(f"Unable to load DLL: incompatible version. Version is: "
                                f"{self.version['major']}.{self.version['minor']}."
-                               f"{self.version['patch']} Expected >= 2.0.0, < 3")
+                               f"{self.version['patch']} Expected >= 4.0.0, < 5")
 
         self.__get_dll_debug = self.__dll.get_dll_debug
         self.__get_dll_debug.restype = c_uint8
