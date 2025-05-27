@@ -21,8 +21,8 @@ To access bhpy and its components import it into your Python code like this:
 ## BH LabView Connect
 
 Remote control interface for Becker&Hickl's LabView software products. Command based interface that allows programmatic access to their user interfaces, similar to SPCConnect. Currently supported LabView applications (requests can be submitted via the [bug tracker](https://github.com/bhmarscheck/bhpy/issues)):
-- BH-QC008
-- BDU
+- [BH-QC008](https://www.becker-hickl.com/products/bh-qc008/)
+- [BDU](https://www.becker-hickl.com/products/bdu-sm-series)
 
 ## BH Hardware
 
