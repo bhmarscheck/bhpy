@@ -24,7 +24,7 @@ if skip_test:
 
 
 class Constants:
-    version = [2, 3, 1]
+    version = [4, 0, 0]
 
 
 @pytest.mark.skipif(skip_x08, reason="Test development")
@@ -79,9 +79,9 @@ class Test_X08:  # noqa
 
         assert 0.0 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 50.0  # 50ns
-        assert 100.0 == self.card_x08.hardware_countdown_time
+        assert 99.00990099009901 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 200.0
-        assert 200.0 == self.card_x08.hardware_countdown_time
+        assert 198.01980198019803 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 30_001.0
         assert 30_000.0 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 300_002.0
@@ -89,9 +89,9 @@ class Test_X08:  # noqa
         self.card_x08.hardware_countdown_time = 4_000_003.0
         assert 4_000_000.0 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 1_000_000_004.0
-        assert 1_000_000_004.0 == self.card_x08.hardware_countdown_time
+        assert 1_000_000_003.960396 == self.card_x08.hardware_countdown_time
         self.card_x08.hardware_countdown_time = 55_000_000_001.0  # 55s
-        assert 17_179_869_180.0 == self.card_x08.hardware_countdown_time
+        assert 17_009_771_465.346535 == self.card_x08.hardware_countdown_time
 
     @pytest.mark.skipif(skip_test, reason="Test Development")
     def test_rates(self):
@@ -462,7 +462,7 @@ class Test_X04:  # noqa
 
 @pytest.mark.skipif(skip_pms, reason="Test Development")
 class Test_Pms:  # noqa
-    # card_pms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
+    #  card_pms = bh.Pms800("c:/Users/enzo/BH/SPC-QC-104/CVI/Build/pms_800.dll")
     card_pms = bh.Pms800()
 
     def test_init_pms(self):

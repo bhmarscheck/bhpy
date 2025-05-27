@@ -12,20 +12,21 @@ only-include = ["bhpy", "dll", "examples"]
 
 [project]
 name = "bhpy"
-version = "3.2.0"
+version = "3.2.1"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]
 dependencies = [
   "appdirs >= 1.4.4, <2",
-  "numpy >= 1.26.4, <2",
-  "pycryptodome >= 3.20.0, <4",
-  "zeroconf >= 0.131.0"
+  "numpy >= 2.2.6, <3",
+  "pycryptodome >= 3.23.0, <4",
+  "zeroconf >= 0.147.0"
 ]
 description = "Python bindings to use Becker & Hickls' hardware control dll and API"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT License" }
+license = "MIT"
+license-files = ['LICENSE.txt']
 keywords = ['FLIM', 'Fluorescence lifetime', 'TCSPC', 'photon counting', 'BH', 'Becker&Hickl', 'molecular imaging', 'SPC', 'SPCM']
 classifiers = [
     'Development Status :: 5 - Production/Stable', # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
@@ -40,10 +41,11 @@ classifiers = [
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Operating System :: OS Independent',
 ]
 
 [project.urls]
 "Homepage" = "https://www.becker-hickl.com/products/bhpy"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
-"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v3.1.0/bhpy-v3.1.0.tar.gz"
+"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v3.2.1/bhpy-v3.2.1.tar.gz"

@@ -2,9 +2,10 @@ import logging
 log = logging.getLogger(__name__)
 
 try:
-    from ctypes import (byref, cast, c_int16, create_string_buffer, Structure, CDLL, POINTER,
-                        c_char_p, c_uint8, c_uint16, c_uint32, c_bool, c_double, c_int8, c_float,
-                        c_uint64, c_int64, c_char, c_int32)
+    from ctypes import (byref, cast, c_int16, create_string_buffer, Structure,
+                        CDLL, POINTER, c_char_p, c_uint8, c_uint16, c_uint32,
+                        c_bool, c_double, c_int8, c_float, c_uint64, c_int64,
+                        c_char, c_int32)
     from pathlib import Path
     import numpy as np
     import numpy.typing as npt
@@ -21,7 +22,8 @@ except ModuleNotFoundError as err:
 class ModuleInit(Structure):
     _fields_ = [("device_nr", c_uint8),
                 ("initialized", c_bool),
-                ("serial_nr_str", c_char * 12)]
+                ("serial_nr_str", c_char * 12),
+                ("device_type_str", c_char * 32)]
 
 
 class TdcLiterals:
@@ -514,10 +516,6 @@ class __EventStream32Bit(__TdcDllWrapper):
         self.file_name = kwargs["default_dll_name"]
         self.__dll: CDLL = self._TdcDllWrapper__dll
 
-        self.__get_events_from_buffer = self.__dll.get_events_from_buffer
-        self.__get_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
-        self.__get_events_from_buffer.restype = c_int64
-
         self.__get_raw_events_from_buffer = self.__dll.get_raw_events_from_buffer
         self.__get_raw_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
         self.__get_raw_events_from_buffer.restype = c_int64
@@ -526,13 +524,6 @@ class __EventStream32Bit(__TdcDllWrapper):
         self.__get_raw_events_from_buffer_to_file.argtypes = [c_uint32, c_uint32, c_uint8,
                                                               c_uint32, c_uint32, c_char_p]
         self.__get_raw_events_from_buffer_to_file.restype = c_int64
-
-    def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], max_events, card_number,
-                               filter_mtos: bool = False):
-        get_events = (self.__get_events_from_buffer if filter_mtos
-                      else self.__get_raw_events_from_buffer)
-        events = get_events(buffer.ctypes.data, c_uint32(max_events), c_uint8(card_number))
-        return buffer, events
 
     def get_events_from_buffer_to_file(self, card_number: int, dir_path: str, idx: int,
                                        min_events: int, max_events: int | None = None,
@@ -552,6 +543,10 @@ class SpcQcX04(__EventStream32Bit):
     def __init__(self, dll_path: Path | str | None = None):
         super().__init__(default_dll_name="spc_qc_x04", no_of_channels=4, dll_path=dll_path)
         self.__dll: CDLL = self._EventStream32Bit__dll
+
+        self.__get_events_from_buffer = self.__dll.get_events_from_buffer
+        self.__get_events_from_buffer.argtypes = [POINTER(c_uint32), c_uint32, c_uint8]
+        self.__get_events_from_buffer.restype = c_int64
 
         self.__get_cFD_threshold = self.__dll.get_CFD_threshold
         self.__get_cFD_threshold.argtypes = [c_uint8]
@@ -921,6 +916,13 @@ class SpcQcX04(__EventStream32Bit):
                                                    byref(front_clipping_arg),
                                                    byref(resolution_arg))
         return ret, time_range_arg.value, front_clipping_arg.value, resolution_arg.value
+
+    def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], max_events, card_number,
+                               filter_mtos: bool = False):
+        get_events = (self.__get_events_from_buffer if filter_mtos
+                      else self.__get_raw_events_from_buffer)
+        events = get_events(buffer.ctypes.data, c_uint32(max_events), c_uint8(card_number))
+        return buffer, events
 
 
 class SpcQcX08(__8ChannelDllWrapper):
