@@ -12,6 +12,8 @@ def bdu_example():
     # Check for the presence of a running BDU application by reading the
     # connected property until no ChildProcessError is raised.
     # The ChildProcessError indicates no running BDU application.
+    # Catching the RuntimeError in case the BDU application is older
+    # that the minimal supported version.
     while True:
         try:
             connected = bdu.connected
@@ -19,6 +21,9 @@ def bdu_example():
         except ChildProcessError:
             print('Start the BDU application.')
             sleep(1)
+        except RuntimeError as e:
+            print(e)
+            return
 
     # Check if a BDU laser is connected and detected by the BDU application.
     # If not wait until a BDU laser is connected and ready to be used.

@@ -274,7 +274,8 @@ class LVConnectBDU:
                 response_str = self._result_str.value.decode()
                 if 'Unknown Job-command' in response_str:
                     raise RuntimeError('Unsupported BDU application version. '
-                                       'LVConnectBDU requires V 1.0.0.92 and up.')
+                                       'LVConnectBDU requires version 1.0.0.92'
+                                       'or higher.')
                 if 'Still loading' not in response_str:
                     break
                 sleep(0.5)
@@ -290,8 +291,9 @@ class LVConnectBDU:
         if version[0] == 1 and version[1] == 0 and version[2] == 0 and version[3] >= 92:
             self._app_version = version
         else:
-            raise RuntimeError(f'Unsupported BDU application version ({response_str}). '
-                               'LVConnectBDU requires V 1.0.0.92 and up.')
+            raise RuntimeError('Unsupported BDU application version ('
+                               f'{response_str}). LVConnectBDU requires'
+                               ' version 1.0.0.92 or higher.')
 
     def _command(self, command: INSTRUCTIONS | str, command_arg: str = None,
                  machine_name: str | None = None) -> str | bool:
