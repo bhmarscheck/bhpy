@@ -263,6 +263,35 @@ class LVConnectBDU:
         self._cmd_timeout_s = default_timeout_s
         self._error_str = create_string_buffer(error_string_buffer_len)
         self._result_str = create_string_buffer(result_string_buffer_len)
+        self._app_version = None
+
+    def _get_app_version(self, machine_name: str | None = None):
+        while True:
+            res = self.__Dll_ControlBDU('GetAppVersion'.encode('utf-8'), machine_name, self._cmd_timeout_s,
+                                        self._error_str, self._result_str, len(self._error_str),
+                                        len(self._result_str))
+            if res == 0 or res == 1:
+                response_str = self._result_str.value.decode()
+                if 'Unknown Job-command' in response_str:
+                    raise RuntimeError('Unsupported BDU application version. '
+                                       'LVConnectBDU requires V 1.0.0.92 and up.')
+                if 'Still loading' not in response_str:
+                    break
+                sleep(0.5)
+            elif res == 56:  # lv connect port not open yet
+                sleep(0.1)
+            else:
+                response_str = self._result_str.value.decode()
+                if 'Still loading' not in response_str:
+                    raise ChildProcessError(f'{response_str.lstrip()} ({res})')
+                sleep(0.5)
+        
+        version = [int(x) for x in response_str.split('.')]
+        if version[0] == 1 and version[1] == 0 and version[2] == 0 and version[3] >= 92:
+            self._app_version = version
+        else:
+            raise RuntimeError(f'Unsupported BDU application version ({response_str}). '
+                               'LVConnectBDU requires V 1.0.0.92 and up.')
 
     def _command(self, command: INSTRUCTIONS | str, command_arg: str = None,
                  machine_name: str | None = None) -> str | bool:
@@ -270,6 +299,9 @@ class LVConnectBDU:
             machine_name = self._machine_name
         else:
             machine_name = machine_name.encode('utf-8')
+
+        if self._app_version is None:
+            self._get_app_version(machine_name)
 
         if command_arg is None:
             cmd = command
@@ -283,14 +315,16 @@ class LVConnectBDU:
             if cmd == 'Stop':  # call might not even return since program kills itself
                 return True
             if res == 0 or res == 1:
-                if 'Still loading' not in self._result_str.value.decode():
-                    return self._result_str.value.decode().split(' ')[0]
+                response_str = self._result_str.value.decode()
+                if 'Still loading' not in response_str:
+                    return response_str.split(' ')[0]
                 sleep(0.5)
             elif res == 56:  # lv connect port not open yet
                 sleep(0.1)
             else:
-                if 'Still loading' not in self._result_str.value.decode():
-                    raise ChildProcessError(f'{self._error_str.value.decode().lstrip()} ({res})')
+                response_str = self._result_str.value.decode()
+                if 'Still loading' not in response_str:
+                    raise ChildProcessError(f'{response_str.lstrip()} ({res})')
                 sleep(0.5)
 
     def command(self, command: INSTRUCTIONS | str, command_arg: str = None) -> str:
