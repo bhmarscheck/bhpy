@@ -12,7 +12,7 @@ only-include = ["bhpy", "dll", "examples"]
 
 [project]
 name = "bhpy"
-version = "3.2.1"
+version = "3.3.0"
 authors = [
   { name="Marscheck", email="marscheck@becker-hickl.de" },
 ]
@@ -48,4 +48,4 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://www.becker-hickl.com/products/bhpy"
 "Bug Tracker" = "https://github.com/bhmarscheck/bhpy/issues"
-"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v3.2.1/bhpy-v3.2.1.tar.gz"
+"Download" = "https://git.becker-hickl.com/products/bhpy/-/archive/v3.3.0/bhpy-v3.3.0.tar.gz"
