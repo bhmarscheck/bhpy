@@ -267,8 +267,10 @@ class LVConnectBDU:
 
     def _get_app_version(self, machine_name: str | None = None):
         while True:
-            res = self.__Dll_ControlBDU('GetAppVersion'.encode('utf-8'), machine_name, self._cmd_timeout_s,
-                                        self._error_str, self._result_str, len(self._error_str),
+            res = self.__Dll_ControlBDU('GetAppVersion'.encode('utf-8'),
+                                        machine_name, self._cmd_timeout_s,
+                                        self._error_str, self._result_str,
+                                        len(self._error_str),
                                         len(self._result_str))
             if res == 0 or res == 1:
                 response_str = self._result_str.value.decode()
@@ -282,11 +284,11 @@ class LVConnectBDU:
             elif res == 56:  # lv connect port not open yet
                 sleep(0.1)
             else:
-                response_str = self._result_str.value.decode()
-                if 'Still loading' not in response_str:
-                    raise ChildProcessError(f'{response_str.lstrip()} ({res})')
+                error_str = self._error_str.value.decode()
+                if 'Still loading' not in error_str:
+                    raise ChildProcessError(f'{error_str.lstrip()} ({res})')
                 sleep(0.5)
-        
+
         version = [int(x) for x in response_str.split('.')]
         if version[0] == 1 and version[1] == 0 and version[2] == 0 and version[3] >= 92:
             self._app_version = version
@@ -324,9 +326,9 @@ class LVConnectBDU:
             elif res == 56:  # lv connect port not open yet
                 sleep(0.1)
             else:
-                response_str = self._result_str.value.decode()
-                if 'Still loading' not in response_str:
-                    raise ChildProcessError(f'{response_str.lstrip()} ({res})')
+                error_str = self._error_str.value.decode()
+                if 'Still loading' not in error_str:
+                    raise ChildProcessError(f'{error_str.lstrip()} ({res})')
                 sleep(0.5)
 
     def command(self, command: INSTRUCTIONS | str, command_arg: str = None) -> str:
