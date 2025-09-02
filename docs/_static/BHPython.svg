@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1024 1024"
+   version="1.1"
+   id="svg40"
+   sodipodi:docname="BHPython.svg"
+   width="1024"
+   height="1024"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
+   inkscape:export-filename="BHLogo.png"
+   inkscape:export-xdpi="110"
+   inkscape:export-ydpi="110"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview42"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.72469132"
+     inkscape:cx="680.28964"
+     inkscape:cy="696.15847"
+     inkscape:window-width="3440"
+     inkscape:window-height="1369"
+     inkscape:window-x="2248"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg40" />
+  <defs
+     id="defs4">
+    <style
+       id="style2">
+.cls-1{fill:#005a8c;}
+.cls-1,.cls-2{fill-rule:evenodd;}
+.cls-2{fill:#0080c9;}
+.logo-text {
+	transform: translateY(100%);
+}
+</style>
+  </defs>
+  <title
+     id="title6">Element 1</title>
+  <metadata
+     id="metadata209">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Element 1</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <rect
+     style="fill:#e5f5ff;fill-opacity:1;stroke:#e5f5ff;stroke-width:324;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+     id="rect2-72"
+     width="700"
+     height="700"
+     x="162"
+     y="162" />
+  <g
+     id="Ebene_2"
+     transform="matrix(3.9830582,0,0,3.9830582,51.199997,92.743294)"
+     inkscape:export-filename="BH-Logo-BHPython_192.png"
+     inkscape:export-xdpi="18"
+     inkscape:export-ydpi="18">
+    <g
+       id="Ebene_1-2">
+      <path
+         class="cls-1"
+         d="m 81.26,207 h 58.45 v -85.06 c 0,-26.89 26.42,-32.17 26.42,-19.39 V 207 h 65.25 V 96.38 c 0,-20.72 -16.81,-39.27 -37.63,-39.88 -22.41,-0.67 -42,6.38 -54,34.59 L 140.3,0 H 81.38 Z"
+         id="path8" />
+      <path
+         class="cls-2"
+         d="m 0,206.55 h 61.25 v -29.08 c 13.21,25.56 24.51,33.05 50,33.05 24.82,0 51.64,-24.24 52,-65.23 0.08,-7.94 0,-14.54 0,-26.88 0,-28.64 -21.22,-61.7 -53.24,-62.14 -21.22,-0.29 -35.63,13.22 -46,36 L 64.54,0 H 0 Z m 81.46,-38.78 c 9.6,0 17.42,-15.94 17.42,-35.48 0,-19.54 -7.82,-35.47 -17.42,-35.47 -9.6,0 -17.41,15.93 -17.41,35.47 0,19.54 7.82,35.48 17.41,35.48 z"
+         id="path10" />
+    </g>
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Python">
+    <path
+       style="fill:#ffd43b;fill-opacity:1"
+       d="m 33.039792,878.34212 c 0,0 59.901909,10.04248 81.256338,1.75331 34.66749,-13.4569 51.969,-76.27421 56.97863,-94.9791 32.61519,-121.77822 -37.36783,-292.20967 15.97231,-364.6134 24.56879,-33.3496 66.37959,-29.00398 81.3189,-19.65943 96.29724,60.23402 43.89585,233.52244 104.81725,332.47415 19.18904,31.16785 47.51339,57.37718 78.63981,76.63335 45.19078,27.957 99.65099,42.50007 150.52724,52.49531 61.84816,12.1508 140.03593,21.57577 205.97428,-26.2713 20.25458,-14.6974 25.72551,-27.33378 29.72873,-63.75514 4.00321,-36.42135 -26.89143,-84.26381 4.56418,-124.92137 15.54988,-20.0988 47.97526,-34.29688 72.04046,-26.13435 18.86292,6.39799 51.53815,59.83783 51.53815,59.83783 0,0 -32.77367,21.06143 -48.05967,20.71284 -10.38901,-0.23691 -27.60134,-23.59355 -39.84005,-16.14206 -22.33266,13.59716 -15.8803,9.32966 -7.20949,78.10696 1.04393,42.32836 -12.53711,98.71636 -47.75085,121.17765 -39.40933,35.70496 -113.76317,38.9593 -172.91624,40.02445 C 573.62124,926.4683 491.29056,912.22374 423.80795,881.11977 364.2031,853.6468 324.5595,825.76898 284.66313,741.81348 249.25957,665.47647 272.42505,497.12995 223.29234,505.949 177.47502,514.17296 221.88549,645.70636 204.05872,765.94363 193.53264,836.93951 162.35395,883.69751 132.48623,891.9784 89.008551,904.03268 33.039792,878.34212 33.039792,878.34212 Z"
+       id="path502"
+       sodipodi:nodetypes="cssssaasszsscsaccascsssc"
+       inkscape:highlight-color="#ffd43b" />
+    <circle
+       style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero"
+       id="path6657"
+       cx="919.26447"
+       cy="662.40222"
+       r="12" />
+  </g>
+</svg>
