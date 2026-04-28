@@ -14,8 +14,8 @@ pages:
     - python -m pip install --upgrade pip
     - python -m pip install -r docs/requirements.txt
   script:
-    - rm -rf public
-    - mkdir -p public
+    #- rm -rf public
+    #- mkdir -p public
     # Build Sphinx HTML into the GitLab Pages "public" folder
     - sphinx-build -b html docs public
   artifacts:

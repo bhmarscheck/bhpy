@@ -14,6 +14,10 @@ To access bhpy and its components import it into your Python code like this:
 
     import bhpy as bh
 
+## Documentation
+
+The Documentation can be found [here](https://products.gitpages.becker-hickl.com/bhpy).
+
 ## SPCConnect
 
 [SPCConnect](https://www.becker-hickl.com/products/spcconnect) is a command based TCP interface for [SPCM](https://www.becker-hickl.com/products/spcm-data-acquisition-software) that allows programmatic access to SPCM's user interface. It can be used to automate measurements, create measurement feedback loops, integrate SPCM's functionality into your software or add other functionality to SPCM. Many parameters can be accessed through the interface directly, others can be set through predefined setups and will be added over time (requests can be submitted via the [bug tracker](https://github.com/bhmarscheck/bhpy/issues)). SPCConnect can also facilitate automated data analysis through SPCM as well as GPU accelerated fluorescence decay analysis with [SPCImage](https://www.becker-hickl.com/products/spcimage) by fitting the data with single-, double- and triple exponential decay models.
