@@ -1,3 +1,13 @@
+"""SPCConnect client wrapper.
+
+This module provides a small, typed client (`BHConnect`) to discover and talk
+to an SPCConnect instance over TCP. It handles the session key exchange,
+message encryption, and convenience helpers to fetch images and traces.
+
+The lower-level TCP server handlers in this module are implementation details
+used to receive large payloads (images, traces) over a temporary local port.
+"""
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -21,6 +31,12 @@ except ModuleNotFoundError as err:
 
 
 class CustomTCPServer(socketserver.TCPServer):
+    """Tiny TCP server used to receive streamed data.
+
+    This server is spun up on a random local port to receive images/traces
+    that SPCConnect sends back after a request. Do not use this class
+    directly; it is an internal helper for `BHConnect.get_image`/`get_trace`.
+    """
     def __init__(self, server_address, request_handler_class,
                  request_handler_queue, done_queue=None,
                  bind_and_activate=True, all_windows=False,
@@ -33,6 +49,11 @@ class CustomTCPServer(socketserver.TCPServer):
 
 
 class _ImageReceiveHandler(socketserver.BaseRequestHandler):
+    """Receives image bytes and writes them to a temp file.
+
+    Enqueues the resulting file path into ``request_handler_queue`` and
+    signals completion via ``done_queue`` when SPCConnect finishes sending.
+    """
     def __init__(self, request, client_address, server: CustomTCPServer) -> None:
         self.file_name = server.file_name
         self.all_windows = server.all_windows
@@ -44,6 +65,7 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
         return super().finish()
 
     def handle(self):
+        """Receive a single image file from the remote SPCConnect instance."""
         data = self.request.recv(1)
         if self.all_windows or self.file_name is None:
             filename = self.request.recv(int.from_bytes(data)).decode()
@@ -56,7 +78,7 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
             if dummy_read == 'EOT':
                 self.done_queue.put(True)
                 return
-        image_dir = (f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect/temp/"
+        image_dir = (f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}SPCConnect/temp/"
                      f"{filename}")
         self.request_handler_queue.put(image_dir)
         Path(image_dir).parent.mkdir(parents=True, exist_ok=True)
@@ -71,6 +93,7 @@ class _ImageReceiveHandler(socketserver.BaseRequestHandler):
 
 
 class _TraceReceiveHandler(socketserver.BaseRequestHandler):
+    """Receives a trace as uint32 chunks into a list and enqueues it."""
     def __init__(self, request, client_address, server: CustomTCPServer) -> None:
         self.request_handler_queue: Queue = server.request_handler_queue
         super().__init__(request, client_address, server)
@@ -79,6 +102,7 @@ class _TraceReceiveHandler(socketserver.BaseRequestHandler):
         return super().finish()
 
     def handle(self):
+        """Receive a trace consisting of 32-bit little-endian values."""
         trace_vals = []
         data = self.request.recv(4)
         values_to_receive = int.from_bytes(data, byteorder='little', signed=False)
@@ -93,6 +117,17 @@ class _TraceReceiveHandler(socketserver.BaseRequestHandler):
 
 
 class BHConnect():
+    """Client for discovering and controlling SPCConnect.
+
+    Typical usage:
+
+    - Discover instance via mDNS and connect: ``connect_spcm_instance()``
+    - Send simple commands: ``command("Version:number")``
+    - Receive data: ``get_image(...)`` / ``get_trace(...)``
+
+    Encryption is handled transparently. The client writes the temporary
+    key files under the per-user data directory for debugging purposes.
+    """
     IMAGE_TYPES = Literal["1stMoment", "Fit", "Fitted", "TauChannel"]
 
     def __init__(self, host=None, port=None):
@@ -169,6 +204,15 @@ class BHConnect():
             s.close()
 
     def find_spcm_instance(self, service_id: int = 1):
+        """Discover an SPCConnect instance via mDNS.
+
+        Args:
+            service_id: The SPCConnect mDNS service suffix (default 1).
+
+        Returns:
+            ``True`` if a reachable instance was found and ``host``/``port``
+            are set accordingly, otherwise ``False``.
+        """
         instance_found = False
         if service_id is None:
             service_id = 1
@@ -199,6 +243,24 @@ class BHConnect():
         return instance_found
 
     def connect_spcm_instance(self, host: str = None, port: int = None, service_id: int = None):
+        """Connect to SPCConnect and perform key exchange.
+
+        Either provide both ``host`` and ``port``, or let the client discover
+        the instance via ``service_id``. On success, the SPCConnect protocol
+        version is validated.
+
+        Args:
+            host: Hostname or IP of SPCConnect.
+            port: TCP port of SPCConnect.
+            service_id: Optional mDNS service id to auto-discover.
+
+        Returns:
+            The protocol version string (e.g. ``"OK: 2.0.0"``).
+
+        Raises:
+            ValueError: If only one of ``host`` or ``port`` is provided.
+            RuntimeError: If the protocol version is unsupported.
+        """
         if (host is None and port is not None) or (host is not None and port is None):
             raise ValueError("Arguments host and port must be provided or both must be None.")
 
@@ -224,7 +286,7 @@ class BHConnect():
         self.private_key_size = self.private_key.size_in_bytes()
         self.public_key = self.private_key.public_key()
 
-        app_data_dir = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}SPCConnect"
+        app_data_dir = f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}SPCConnect"
         Path(app_data_dir).mkdir(parents=True, exist_ok=True)
         with open(f"{app_data_dir}/cli_private.pem", "wb") as f:
             f.write(self.private_key.export_key())
@@ -246,12 +308,26 @@ class BHConnect():
         return self.command("Version:number")
 
     def disconnect_spcm_instance(self):
+        """Close the TCP socket to SPCConnect."""
         self.sock.close()
 
     def shutdown_spcm_instance(self):
+        """Ask SPCConnect to shut down gracefully (if supported)."""
         self.__send(bytearray([0xFE]))
 
     def command(self, command) -> str:
+        """Send a plain SPCConnect command and return its response.
+
+        Args:
+            command: The command string without surrounding ``$`` markers.
+
+        Returns:
+            Either ``True`` for bare ``OK``, the parsed float when possible,
+            or the raw string payload returned by SPCConnect.
+
+        Raises:
+            ValueError: If SPCConnect responds with an error (non-OK).
+        """
         self.__send((f"${command}$").encode("ascii"))
         answer = self.__receive().decode()
 
@@ -272,6 +348,23 @@ class BHConnect():
 
     def get_image(self, window=1, cycle=1, image_type: IMAGE_TYPES = "1stMoment",
                   fit_config: tuple[str, int] = None, tau_channel: str = None):
+        """Request image data and receive it as local temp files.
+
+        Depending on the requested ``image_type`` and arguments, the method
+        spins up a local TCP server for the duration of the transfer, and
+        returns a list of file paths to the received TIFF images.
+
+        Args:
+            window: Window index (use ``-1`` for all windows).
+            cycle: Cycle index for the selected window.
+            image_type: One of ``"1stMoment"``, ``"Fit"``, ``"Fitted"``,
+                or ``"TauChannel"``.
+            fit_config: Optional tuple of (config_name, int_value) for fit images.
+            tau_channel: Optional tau channel when ``image_type`` is ``TauChannel``.
+
+        Returns:
+            List of absolute file paths to the received images.
+        """
         file_name = None
         all_windows = window == -1
         request_handler_queue = Queue()
@@ -318,6 +411,15 @@ class BHConnect():
         # print(filename, end='', flush=True)
 
     def get_trace(self, trace_type=11, trace_number=1):
+        """Request a trace and return the values as a list of ints.
+
+        Args:
+            trace_type: Trace type (currently unused; reserved for extension).
+            trace_number: One-based trace index.
+
+        Returns:
+            List of unsigned 32-bit values representing the trace.
+        """
         request_handler_queue = Queue()
         file_receive_server = CustomTCPServer(('', 0), _TraceReceiveHandler,
                                               bind_and_activate=True,
@@ -333,6 +435,12 @@ class BHConnect():
         return request_handler_queue.get()
 
     def set_image_size(self, width, height):
+        """Set image dimensions in SPCConnect.
+
+        Args:
+            width: Image width in pixels.
+            height: Image height in pixels.
+        """
         self.command("pressmenu:systemparameter")
         self.command(f"setparameter:pixelx,{width}")
         self.command(f"setparameter:pixely,{height}")

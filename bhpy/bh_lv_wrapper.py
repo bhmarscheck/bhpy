@@ -1,3 +1,14 @@
+"""LabVIEW connector wrappers for QC008 and BDU.
+
+This module wraps two DLLs used to control external LabVIEW applications:
+
+- ``ControlQC008.dll`` via :class:`LVConnectQC008`
+- ``ControlBDU.dll`` via :class:`LVConnectBDU`
+
+Both classes provide a high-level ``command`` method alongside a set of
+properties and helpers for common operations.
+"""
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -14,6 +25,11 @@ except ModuleNotFoundError as err:
 
 
 class LVConnectQC008:
+    """Wrapper around ``ControlQC008.dll`` for SPC QC 008 control.
+
+    Provides a typed command interface and properties for querying status
+    and rates, as well as helpers to orchestrate common actions.
+    """
     INSTRUCTIONS = Literal["AutoAdjust", "HideAnalysis", "HideCardSettings", "HideCorrelation",
                            "HideDebugInfo", "HideDeltaT", "HideMCS", "LoadAutoSavedSettings",
                            "RepeatMeasurement", "ScanThreshold", "ShowAnalysis",
@@ -73,6 +89,7 @@ class LVConnectQC008:
             raise ChildProcessError(f"{self._error_str.value.decode()} ({res})")
 
     def command(self, command: INSTRUCTIONS):
+        """Send a command without arguments to the QC008 control DLL."""
         self._command(command=command)
 
     @property

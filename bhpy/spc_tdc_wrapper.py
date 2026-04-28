@@ -1,3 +1,13 @@
+"""Wrappers for SPC/TDC DLLs (SPC QC X04/X08, PMS-800).
+
+This module provides typed, Pythonic facades around the underlying C DLLs.
+It focuses on readability and encapsulates low-level ctypes details while
+exposing properties and methods aligned with the device capabilities.
+
+Only a subset of the wide surface is annotated in detail. Refer to vendor
+documentation together with the docstrings below when in doubt.
+"""
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -20,6 +30,7 @@ except ModuleNotFoundError as err:
 
 
 class ModuleInit(Structure):
+    """ctypes structure reflecting a single module's initialization status."""
     _fields_ = [("device_nr", c_uint8),
                 ("initialized", c_bool),
                 ("serial_nr_str", c_char * 12),
@@ -27,6 +38,7 @@ class ModuleInit(Structure):
 
 
 class TdcLiterals:
+    """Literal groups and small mappings used across TDC wrappers."""
     DEFAULT_NAMES = Literal["spc_qc_X04", "spc_qc_X08", "pms_800"]
 
     MARKER = Literal["pixel", "line", "frame", "marker3", 0, 1, 2, 3]
@@ -38,6 +50,7 @@ class TdcLiterals:
 
 
 class Markers(typing.TypedDict):
+    """Typed mapping for marker enables/polarities by name."""
     pixel: bool | TdcLiterals.POLARITIES = 0
     line: bool | TdcLiterals.POLARITIES = 0
     frame: bool | TdcLiterals.POLARITIES = 0
@@ -45,6 +58,11 @@ class Markers(typing.TypedDict):
 
 
 class __TdcDllWrapper:
+    """Base DLL wrapper shared by specific device families.
+
+    Loads the DLL, validates versions and provides core methods that are
+    available across multiple devices.
+    """
     version_str = ""
     version_str_buf = create_string_buffer(128)
 
@@ -286,15 +304,29 @@ class __TdcDllWrapper:
         # Structure objects (arg1) are automatically passed byref
 
         for module in arg1:
+            if not module.initialized:
+                raise RuntimeError(f"Module {module.device_nr} could not be initialized, {ret}")
             self.serial_number.append(str(module.serial_nr_str)[2:-1])
         return ret
 
     def initialize_data_collection(self, event_size):
+        """Initialize a single data collection buffer.
+
+        Args:
+            event_size: Desired event buffer size. The DLL may adjust it.
+
+        Returns:
+            The actual buffer size chosen by the DLL.
+        """
         arg = c_uint64(event_size)
         self.__initialize_data_collection(byref(arg))
         return arg.value
 
     def initialize_data_collections(self, event_size):
+        """Initialize data collection buffers for all modules/cards.
+
+        See :meth:`initialize_data_collection` for semantics.
+        """
         arg = c_uint64(event_size)
         self.__initialize_data_collections(byref(arg))
         return arg.value
@@ -312,11 +344,21 @@ class __TdcDllWrapper:
         return
 
     def run_data_collection(self, acquisition_time_ms, timeout_ms):
+        """Start a blocking acquisition with a timeout.
+
+        Args:
+            acquisition_time_ms: Measurement duration in milliseconds.
+            timeout_ms: Maximum time to wait for completion.
+
+        Returns:
+            Device-specific return code from the DLL.
+        """
         arg1 = c_uint32(acquisition_time_ms)  # TODO remove these extra steps where not needed
         arg2 = c_uint32(timeout_ms)
         return self.__run_data_collection(arg1, arg2)
 
     def stop_measurement(self):
+        """Attempt to stop the current measurement if supported by the DLL."""
         return self.__stop_measurement()
 
     def _write_setting(self, setting_id, value):
@@ -328,6 +370,7 @@ class __TdcDllWrapper:
 
 
 class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
+    """Mixin with helpers for devices exposing 8 channels."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__dll: CDLL = self._TdcDllWrapper__dll
@@ -511,6 +554,11 @@ class __8ChannelDllWrapper(__TdcDllWrapper):  # noqa
 
 
 class __EventStream32Bit(__TdcDllWrapper):
+    """Mixin for devices streaming 32-bit events.
+
+    Provides helpers to read event buffers and exposes common properties
+    like routing, marker configuration, and status decoding.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.file_name = kwargs["default_dll_name"]
@@ -540,6 +588,7 @@ class __EventStream32Bit(__TdcDllWrapper):
 
 
 class SpcQcX04(__EventStream32Bit):
+    """Wrapper for SPC QC X04 devices (4 channels, 32-bit event stream)."""
     def __init__(self, dll_path: Path | str | None = None):
         super().__init__(default_dll_name="spc_qc_x04", no_of_channels=4, dll_path=dll_path)
         self.__dll: CDLL = self._EventStream32Bit__dll
@@ -919,6 +968,18 @@ class SpcQcX04(__EventStream32Bit):
 
     def get_events_from_buffer(self, buffer: npt.NDArray[np.uint32], max_events, card_number,
                                filter_mtos: bool = False):
+        """Fill ``buffer`` with events from the device and return count.
+
+        Args:
+            buffer: Pre-allocated NumPy array of dtype ``uint32``.
+            max_events: Maximum number of events to pull.
+            card_number: Card index to read from.
+            filter_mtos: If ``True``, apply DLL-side filtering.
+
+        Returns:
+            A tuple ``(buffer, events)`` where ``events`` is the number of
+            items written to ``buffer``.
+        """
         get_events = (self.__get_events_from_buffer if filter_mtos
                       else self.__get_raw_events_from_buffer)
         events = get_events(buffer.ctypes.data, c_uint32(max_events), c_uint8(card_number))
@@ -926,6 +987,11 @@ class SpcQcX04(__EventStream32Bit):
 
 
 class SpcQcX08(__8ChannelDllWrapper):
+    """Wrapper for SPC QC X08 devices.
+
+    Exposes 8-channel specific getters/setters for thresholds, polarities
+    and trigger-related configuration.
+    """
     INPUT_MODES = Literal["Input", "Calibration Input", 0, 2]
     input_modes = {"Input": 0, "Calibration Input": 2}
     modes_input = {0: "Input", 2: "Calibration Input"}
@@ -1005,12 +1071,12 @@ class SpcQcX08(__8ChannelDllWrapper):
             raise ValueError("Sync channel must be either -1(all) or 0 through 7")
         self.__set_sync_channel(c_int8(channel))
 
-    def get_event_triplets_from_buffer(self, buffer: npt.NDArray[np.uint32], card_number: int,
+    def get_event_triplets_from_buffer(self, buffer: npt.NDArray[np.uint64], card_number: int,
                                        max_event_triplets: int | None = None
                                        ) -> tuple[npt.NDArray[np.uint32], int]:
         if max_event_triplets is None:
             max_event_triplets = buffer.size
-        events = self.__get_raw_event_triplets_from_buffer(buffer.ctypes.data,
+        events = self.__get_raw_event_triplets_from_buffer(buffer.ctypes.data_as(POINTER(c_uint64)),
                                                            c_uint32(max_event_triplets),
                                                            c_uint8(card_number))
         return buffer, events
@@ -1031,6 +1097,7 @@ class SpcQcX08(__8ChannelDllWrapper):
 
 
 class Pms800(__8ChannelDllWrapper, __EventStream32Bit):
+    """Wrapper for PMS-800 devices (8 channels, extended input modes)."""
     INPUT_MODES = Literal["Input", "Gated Input", "Calibration Input", 0, 1, 2]
     input_modes = {"Input": 0, "Gated Input": 1, "Calibration Input": 2}
     modes_input = {0: "Input", 1: "Gated Input", 2: "Calibration Input"}

@@ -1,3 +1,10 @@
+"""Configuration helpers for SPC/TDC modules.
+
+These classes provide simple load/save helpers and reasonable defaults for
+different hardware families. They write JSON files to the per-user data
+directory so that applications can persist configuration between runs.
+"""
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -12,17 +19,24 @@ except ModuleNotFoundError as err:
 
 
 class Pms800Conf():
-    default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/Pms800/Config.json"
+    """Default locations and helpers for PMS-800 configuration files."""
+    default_path = f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}/Pms800/Config.json"
     pass
 
 
 class SpcQcX08Conf():
-    default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX08/Config.json"
+    """Default locations and helpers for SPC QC X08 configuration files."""
+    default_path = f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}/SpcQcX08/Config.json"
     pass
 
 
 class SpcQcX04Conf():
-    default_path = f"{appdirs.user_data_dir(appauthor='BH',appname='bhpy')}/SpcQcX04/Config.json"
+    """Default locations and helpers for SPC QC X04 configuration files.
+
+    The string constants for edges are kept as-is to match the GUI
+    representation expected by external tools.
+    """
+    default_path = f"{appdirs.user_data_dir(appauthor='BH', appname='bhpy')}/SpcQcX04/Config.json"
 
     POSITIVE_EDGE = "͟  |͞   (rising)"
     NEGATIVE_EDGE = "͞  |͟   (falling)"
@@ -32,12 +46,19 @@ class SpcQcX04Conf():
     DELTA_TIME_MODE = "Δt"
 
     def __init__(self, config_path: str = default_path) -> None:
+        """Create a configuration with defaults, then try to load from disk.
+
+        Args:
+            config_path: Path to a JSON file to load. If it does not exist,
+                it will be created with the default contents.
+        """
         SpcQcX04Conf.default_path = config_path
         self.selectedCard = '1'
         self.restore_defaults()
         self.load_conf(config_path)
 
     def load_conf(self, conf_path=None) -> None:
+        """Load configuration from ``conf_path``; write defaults if missing."""
         if conf_path is None:
             conf_path = self.default_path
         try:
@@ -49,6 +70,7 @@ class SpcQcX04Conf():
             self.write_conf(conf_path)
 
     def write_conf(self, conf_path=None) -> None:
+        """Persist the current configuration to disk as JSON."""
         if conf_path is None:
             conf_path = self.default_path
         conf_dict = self.__dict__
@@ -58,12 +80,12 @@ class SpcQcX04Conf():
             json.dump(conf_dict, f, indent=2, sort_keys=True, default=str, ensure_ascii=False)
 
     def restore_config(self) -> None:
-        '''Resets the Hardware settings.
+        """Reset hardware-related settings to safe defaults.
 
-        Settings that require little or no changes after initial setup
-        because they are tied to the measurement system's components and
-        their assembly, get set to values that are either the hardware
-        defaults or good starting point'''
+        Settings that rarely change after initial setup (e.g. thresholds
+        tied to the physical setup) are reset to hardware defaults or good
+        starting points.
+        """
         # Channel wise settings
         self.threshold = [-50.0, -50.0, -50.0, -50.0]
         self.zeroCross = [12.0, 12.0, 12.0, 12.0]
@@ -83,11 +105,11 @@ class SpcQcX04Conf():
         self.triggerEdge = self.POSITIVE_EDGE
 
     def restore_measurement(self) -> None:
-        '''Resets the measurement parameters
+        """Reset measurement parameters to common defaults.
 
-        Parameters that are related to the individual measurement, that
-        may be changed according to the need of the test specimen or the
-        expected/desired experiment results'''
+        These values are intended to be tailored for each experiment but are
+        useful defaults to start from.
+        """
         self.channelDelay = [0., 0., 0., 0.]
         self.timeRangePs = 4_194_573
         self.frontClippingNs = 0
@@ -98,9 +120,9 @@ class SpcQcX04Conf():
         self.resolution = 12
 
     def restore_defaults(self) -> None:
-        '''Resets all settings and parameters
+        """Reset all settings and parameters to defaults.
 
-        Dispatcher call for all different categories of settings and
-        parameters'''
+        Convenience dispatcher that calls the config and measurement resetters.
+        """
         self.restore_config()
         self.restore_measurement()

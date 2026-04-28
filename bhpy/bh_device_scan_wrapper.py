@@ -1,3 +1,9 @@
+"""Hardware device discovery wrapper.
+
+This module wraps the `bh_device_scan.dll` to enumerate connected Becker &
+Hickl hardware modules and their firmware versions.
+"""
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -14,12 +20,21 @@ except ModuleNotFoundError as err:
 
 
 class HardwareScanResult(Structure):
+    """ctypes structure used by the DLL to report scan results.
+
+    Fields map to fixed-size C strings returned by the scan function.
+    """
     _fields_ = [("friendlyName", c_char * 32),
                 ("serialNumber", c_char * 32),
                 ("firmwareVersion", c_char * 32)]
 
 
 class BHDeviceScan:
+    """Thin wrapper around ``bh_device_scan.dll``.
+
+    Instantiate once, then call :meth:`bh_scan_hardware` to list connected
+    modules. Raises on incompatible DLL version.
+    """
     version_str = ""
     version_str_buf = create_string_buffer(128)
 
@@ -55,6 +70,12 @@ class BHDeviceScan:
         self.__bhScanHardware.restype = c_int16
 
     def bh_scan_hardware(self) -> list:
+        """Scan for connected devices.
+
+        Returns:
+            List of tuples ``(friendly_name, serial_number, firmware_version)``
+            for each detected device. Returns an empty list if none found.
+        """
         arg1 = (HardwareScanResult * 32)()
         serial_number = []
 
