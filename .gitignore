@@ -131,5 +131,6 @@ dmypy.json
 *.code-workspace
 releaseGuide.py
 pyVenv/bhpy/*
+pyVenv/bhpybak/*
 !pyVenv/bhpy/requirements.txt
 pyVenv/packageRequireCheck/
